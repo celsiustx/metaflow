@@ -116,12 +116,12 @@ def cli(ctx):
               help='Show all Pylint warnings, not just errors.')
 @click.pass_obj
 def check(obj, warnings=False):
-    _check(obj.graph, obj.flow, obj.environment, pylint=obj.pylint, warnings=warnings)
-    fname = inspect.getfile(obj.flow.__class__)
+    flow = obj.flow
+    _check(obj.graph, flow, obj.environment, pylint=obj.pylint, warnings=warnings)
     echo("\n*'{cmd} show'* shows a description of this flow.\n"
          "*'{cmd} run'* runs the flow locally.\n"
          "*'{cmd} help'* shows all available commands and options.\n"
-         .format(cmd=fname), highlight='magenta', highlight_bold=False)
+         .format(cmd=' '.join(['metaflow','flow',flow.path_spec])), highlight='magenta', highlight_bold=False)
 
 
 @cli.command(help='Show structure of the flow.')
