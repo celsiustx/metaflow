@@ -759,13 +759,15 @@ def start(ctx,
     else:
         echo = echo_always
 
-    ctx.obj.version = metaflow_version.get_version()
-    version = ctx.obj.version
+    obj = ctx.obj
+    obj.version = metaflow_version.get_version()
+    flow = obj.flow
+    version = obj.version
     if use_r():
         version = metaflow_r_version()
 
     echo('Metaflow %s' % version, fg='magenta', bold=True, nl=False)
-    echo(" executing *%s*" % ctx.obj.flow.name, fg='magenta', nl=False)
+    echo(" executing *%s*" % flow.name, fg='magenta', nl=False)
     echo(" for *%s*" % resolve_identity(), fg='magenta')
 
     if coverage:
@@ -776,68 +778,68 @@ def start(ctx,
                        branch=True)
         cov.start()
 
-    ctx.obj.echo = echo
-    ctx.obj.echo_always = echo_always
-    ctx.obj.graph = FlowGraph(ctx.obj.flow.__class__)
-    ctx.obj.logger = logger
-    ctx.obj.check = _check
-    ctx.obj.pylint = pylint
-    ctx.obj.top_cli = cli
-    ctx.obj.package_suffixes = package_suffixes.split(',')
-    ctx.obj.reconstruct_cli = _reconstruct_cli
+    obj.echo = echo
+    obj.echo_always = echo_always
+    obj.graph = FlowGraph(ctx.obj.flow.__class__)
+    obj.logger = logger
+    obj.check = _check
+    obj.pylint = pylint
+    obj.top_cli = cli
+    obj.package_suffixes = package_suffixes.split(',')
+    obj.reconstruct_cli = _reconstruct_cli
 
-    ctx.obj.event_logger = EventLogger(event_logger)
+    obj.event_logger = EventLogger(event_logger)
 
-    ctx.obj.environment = [e for e in ENVIRONMENTS + [MetaflowEnvironment]
-                           if e.TYPE == environment][0](ctx.obj.flow)
-    ctx.obj.environment.validate_environment(echo)
+    obj.environment = [e for e in ENVIRONMENTS + [MetaflowEnvironment]
+                           if e.TYPE == environment][0](flow)
+    obj.environment.validate_environment(echo)
 
-    ctx.obj.datastore = DATASTORES[datastore]
-    ctx.obj.datastore_root = datastore_root
+    obj.datastore = DATASTORES[datastore]
+    obj.datastore_root = datastore_root
 
     # It is important to initialize flow decorators early as some of the
     # things they provide may be used by some of the objects initialize after.
-    decorators._init_flow_decorators(ctx.obj.flow,
-                                     ctx.obj.graph,
-                                     ctx.obj.environment,
-                                     ctx.obj.datastore,
-                                     ctx.obj.logger,
+    decorators._init_flow_decorators(flow,
+                                     obj.graph,
+                                     obj.environment,
+                                     obj.datastore,
+                                     obj.logger,
                                      echo,
                                      deco_options)
 
-    ctx.obj.monitor = Monitor(monitor, ctx.obj.environment, ctx.obj.flow.name)
-    ctx.obj.monitor.start()
+    obj.monitor = Monitor(monitor, obj.environment, flow.name)
+    obj.monitor.start()
 
-    ctx.obj.metadata = [m for m in METADATA_PROVIDERS
-                        if m.TYPE == metadata][0](ctx.obj.environment,
-                                                  ctx.obj.flow,
-                                                  ctx.obj.event_logger,
-                                                  ctx.obj.monitor)
-    ctx.obj.datastore = DATASTORES[datastore]
+    obj.metadata = [m for m in METADATA_PROVIDERS
+                        if m.TYPE == metadata][0](obj.environment,
+                                                  flow,
+                                                  obj.event_logger,
+                                                  obj.monitor)
+    obj.datastore = DATASTORES[datastore]
 
     if datastore_root is None:
         datastore_root = \
-          ctx.obj.datastore.get_datastore_root_from_config(ctx.obj.echo)
-    ctx.obj.datastore_root = ctx.obj.datastore.datastore_root = datastore_root
+          obj.datastore.get_datastore_root_from_config(obj.echo)
+    obj.datastore_root = obj.datastore.datastore_root = datastore_root
 
     if decospecs:
-        decorators._attach_decorators(ctx.obj.flow, decospecs)
+        decorators._attach_decorators(flow, decospecs)
 
     # initialize current and parameter context for deploy-time parameters
-    current._set_env(flow_name=ctx.obj.flow.name, is_running=False)
-    parameters.set_parameter_context(ctx.obj.flow.name,
-                                        ctx.obj.echo,
-                                        ctx.obj.datastore)
+    current._set_env(flow_name=flow.name, is_running=False)
+    parameters.set_parameter_context(flow.name,
+                                        obj.echo,
+                                        obj.datastore)
 
     if ctx.invoked_subcommand not in ('run', 'resume'):
         # run/resume are special cases because they can add more decorators with --with,
         # so they have to take care of themselves.
         decorators._attach_decorators(
-            ctx.obj.flow, ctx.obj.environment.decospecs())
+            flow, obj.environment.decospecs())
         decorators._init_step_decorators(
-            ctx.obj.flow, ctx.obj.graph, ctx.obj.environment, ctx.obj.datastore, ctx.obj.logger)
+            flow, obj.graph, obj.environment, obj.datastore, obj.logger)
         #TODO (savin): Enable lazy instantiation of package
-        ctx.obj.package = None
+        obj.package = None
     if ctx.invoked_subcommand is None:
         ctx.invoke(check)
 
