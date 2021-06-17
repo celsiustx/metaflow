@@ -1,34 +1,16 @@
 name: Test
-on:
-  push:
-    branches:
-    - master
-  pull_request:
-    branches:
-    - master
+on: [push, pull_request]
 jobs:
   test:
     name: ${{ matrix.lang }} tests on ${{ matrix.os }}
     runs-on: ${{ matrix.os }}
     strategy:
       matrix:
-        os: [ubuntu-latest, macos-latest]
-        lang: [Python, R]
+        os: [ubuntu-latest]
+        lang: [Python]
 
     steps:
     - uses: actions/checkout@v2
-
-    - name: Set up Python 2.x
-      if: matrix.lang == 'Python'
-      uses: actions/setup-python@v1
-      with:
-        python-version: '2.x'
-
-    - name: Install Python 2.x dependencies
-      if: matrix.lang == 'Python'
-      run: |
-        python2 -m pip install --upgrade pip
-        python2 -m pip install tox
 
     - name: Set up Python 3.7
       uses: actions/setup-python@v2
@@ -37,8 +19,8 @@ jobs:
 
     - name: Install Python 3.x dependencies
       run: |
-        python3 -m pip install --upgrade pip
-        python3 -m pip install tox numpy
+        python3 -m pip install --upgrade pip setuptools wheel
+        python3 -m pip install -e .[test]
     
     - name: Set up R 3.6
       if: matrix.lang == 'R'
@@ -68,3 +50,7 @@ jobs:
     - name: Execute Python tests
       if: matrix.lang == 'python'
       run: tox
+
+    - name: Execute pytest tests
+      if: matrix.lang == 'python'
+      run: pytest
