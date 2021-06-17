@@ -1,8 +1,8 @@
+from datetime import datetime
+from functools import wraps
 import inspect
 import sys
 import traceback
-from datetime import datetime
-from functools import wraps
 
 import click
 
