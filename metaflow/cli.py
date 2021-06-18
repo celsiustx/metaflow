@@ -1,6 +1,7 @@
 from datetime import datetime
 from functools import wraps
 import inspect
+from os.path import basename
 import sys
 import traceback
 
@@ -931,6 +932,9 @@ def main(flow, args=None, handle_exceptions=True, entrypoint=None, standalone_mo
     state.entrypoint = entrypoint
 
     start_kwargs = dict(auto_envvar_prefix='METAFLOW', obj=state, standalone_mode=standalone_mode)
+    if entrypoint:
+        prog_name = basename(entrypoint[0])
+        start_kwargs['prog_name'] = prog_name
     if args is not None:
         start_kwargs['args'] = args
 
