@@ -869,7 +869,8 @@ def _check(graph, flow, environment, pylint=True, warnings=False, **kwargs):
     echo('The graph looks good!', fg='green', bold=True, indent=True)
     if pylint:
         echo("Running pylint...", fg='magenta', bold=False)
-        fname = inspect.getfile(flow.__class__)
+        # `__file__` is always set on `Flow`-metaclass types, but not on vanilla `FlowSpec` subclasses
+        fname = getattr(flow, '__file__', inspect.getfile(flow.__class__))
         pylint = PyLint(fname)
         if pylint.has_pylint():
             pylint_is_happy, pylint_exception_msg = pylint.run(
