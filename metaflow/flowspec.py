@@ -5,6 +5,7 @@ import sys
 import traceback
 
 from . import cmd_with_io
+from .meta import META_KEY
 from .parameters import Parameter
 from .exception import MetaflowException, MissingInMergeArtifactsException, UnhandledInMergeArtifactsException
 from .graph import FlowGraph
