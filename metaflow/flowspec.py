@@ -8,7 +8,7 @@ from . import cmd_with_io
 from .meta import META_KEY
 from .parameters import Parameter, has_main_flow, register_main_flow, register_parameters
 from .exception import MetaflowException, MissingInMergeArtifactsException, UnhandledInMergeArtifactsException
-from .graph import FlowGraph
+from .graph import FlowGraph, parse_flow
 
 
 # For Python 3 compatibility
@@ -121,6 +121,64 @@ class FlowSpec(object):
                 handle_exceptions=standalone_mode,
                 standalone_mode=standalone_mode,
             )
+
+    @classmethod
+    def load(cls, *args, register_main=True):
+        '''Load a FlowSpec from a path-spec ("<path>:<flow_spec name>") or 2 (file, name) strings
+
+        @param args: 1 string (flow-path spec, i.e. "<file>:<name>") or 2 strings (flow file, flow name)
+        @param register_main: True, False, or "overwrite"
+        '''
+        if len(args) == 2:
+            flow_file, flow_name = args
+            if not isinstance(flow_file, str) or not isinstance(flow_name, str):
+                raise ValueError(
+                    'Invalid flow file/name: %s (%s), %s (%s)' % (
+                        flow_file, type(flow_file),
+                        flow_name, type(flow_name),
+                    )
+                )
+            flow_path_spec = '%s:%s' % (flow_file, flow_name)
+        elif len(args) == 1:
+            flow_path_spec = args[0]
+            if isinstance(flow_path_spec, str):
+                pcs = flow_path_spec.rsplit(':', 1)
+                if len(pcs) == 2:
+                    flow_file, flow_name = pcs
+                elif len(pcs) == 1:
+                    flow_file, flow_name = pcs[0], None
+                else:
+                    # TODO: support loading of only flow in file
+                    raise ValueError('Invalid Flow path-spec: %s' % flow_path_spec)
+            else:
+                raise ValueError(
+                    'Single argument should be (string) Flow path-spec in the form: <file>:<name>; found %s (%s)' % (
+                        flow_path_spec, type(flow_path_spec)
+                    )
+                )
+        else:
+            raise ValueError('Expected 1 or 2 (string) args; found %d: %s' % (len(args), ' '.join(args)))
+
+        with open(flow_file, 'r') as f:
+            src = f.read()
+
+        setattr(sys, META_KEY, flow_file)
+        ctx = dict(__file__=flow_file,)
+        ctx['__name__'] = '__main__'
+        exec(src, ctx)
+        delattr(sys, META_KEY)
+        if flow_name is None:
+            flow_ast, tree = parse_flow(src, flow_file)
+            flow_name = flow_ast.name
+            flow_spec = ctx[flow_name]
+            flow_path_spec = '%s:%s' % (flow_file, flow_name)
+        else:
+            flow_spec = ctx[flow_name]
+        flow_spec.__file__ = flow_file
+        flow_spec.path_spec = flow_path_spec
+        if register_main:
+            register_main_flow(flow_spec, overwrite=register_main=='overwrite')
+        return flow_spec
 
     @property
     def script_name(self):
