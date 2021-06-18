@@ -195,12 +195,13 @@ class FlowSpec(object):
             fname = fname[:-1]
         return os.path.basename(fname)
 
-    def _get_parameters(self):
-        for var in dir(self):
+    @classmethod
+    def _get_parameters(cls):
+        for var in dir(cls):
             if var[0] == '_':
                 continue
             try:
-                val = getattr(self, var)
+                val = getattr(cls, var)
             except:
                 continue
             if isinstance(val, Parameter):
