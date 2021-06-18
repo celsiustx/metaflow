@@ -62,13 +62,17 @@ class FlowSpec(object):
             Set to True if the flow is invoked from __main__ or the command line
         """
 
-        self.name = self.__class__.__name__
+        cls = self.__class__
+        self.name = cls.__name__
 
         self._datastore = None
         self._transition = None
         self._cached_input = {}
 
-        self._graph = FlowGraph(self.__class__)
+        if not getattr(self, '_graph', None):
+            # Flow metaclass constructs Graph at FlowSpec-class creation time
+            self._graph = FlowGraph(cls)
+
         self._steps = [getattr(self, node.name) for node in self._graph]
 
         if use_cli:
