@@ -2,14 +2,13 @@ from importlib import import_module
 from itertools import islice
 import os
 import sys
-import inspect
 import traceback
 
 from . import cmd_with_io
 from .parameters import Parameter
-from .exception import MetaflowException, MetaflowInternalError, \
-    MissingInMergeArtifactsException, UnhandledInMergeArtifactsException
+from .exception import MetaflowException, MissingInMergeArtifactsException, UnhandledInMergeArtifactsException
 from .graph import FlowGraph
+
 
 # For Python 3 compatibility
 try:
