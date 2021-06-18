@@ -39,6 +39,7 @@ def deindent_docstring(doc):
     else:
         return ''
 
+
 class DAGNode(object):
     def __init__(self, func_ast, decos, doc):
         self.name = func_ast.name
