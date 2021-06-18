@@ -85,6 +85,7 @@ class FlowSpec(object):
                 module = import_module(mod_name)
                 file = module.__file__
             cls.__file__ = file
+        self.path_spec = '%s:%s' % (self.__file__, self.name)
 
         if not getattr(self, '_graph', None):
             # Flow metaclass constructs Graph at FlowSpec-class creation time
