@@ -780,7 +780,10 @@ def start(ctx,
 
     obj.echo = echo
     obj.echo_always = echo_always
-    obj.graph = FlowGraph(ctx.obj.flow.__class__)
+    graph = getattr(flow, '_graph', None)
+    if not graph:
+        raise RuntimeError('Flow %s missing graph' % flow.name)
+    obj.graph = graph
     obj.logger = logger
     obj.check = _check
     obj.pylint = pylint
