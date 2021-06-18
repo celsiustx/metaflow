@@ -232,7 +232,11 @@ class FlowSpec(object):
             raise AttributeError("Flow %s has no attribute '%s'" %
                                  (self.name, name))
 
-    def cmd(self, cmdline, input={}, output=[]):
+    def cmd(self, cmdline, input=None, output=None):
+        if input is None:
+            input = {}
+        if output is None:
+            output = []
         return cmd_with_io.cmd(cmdline,
                                input=input,
                                output=output)
