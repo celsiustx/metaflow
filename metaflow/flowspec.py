@@ -190,7 +190,7 @@ class FlowSpec(object):
         str
             A string containing the name of the script
         """
-        fname = inspect.getfile(self.__class__)
+        fname = self.__file__
         if fname.endswith('.pyc'):
             fname = fname[:-1]
         return os.path.basename(fname)
