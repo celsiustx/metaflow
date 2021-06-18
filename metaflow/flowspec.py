@@ -6,7 +6,7 @@ import traceback
 
 from . import cmd_with_io
 from .meta import META_KEY
-from .parameters import Parameter
+from .parameters import Parameter, has_main_flow, register_main_flow, register_parameters
 from .exception import MetaflowException, MissingInMergeArtifactsException, UnhandledInMergeArtifactsException
 from .graph import FlowGraph
 
@@ -70,6 +70,8 @@ class FlowSpec(object):
         self._transition = None
         self._cached_input = {}
 
+        register_parameters(self)
+
         # `Flow` (metaclass) types get `__file__` set automatically; here we support overriding / a sensible default for
         # regular `FlowSpec` subclasses
         if file:
@@ -103,6 +105,10 @@ class FlowSpec(object):
                     '-m', 'metaflow.main_cli',
                     'flow', self.path_spec,
                 ]
+
+            # Detect invocation via `python <file>` + `__main__` handler
+            if not has_main_flow() and cls.__module__ == '__main__':
+                register_main_flow(cls)
 
             # Import cli here (as opposed to earlier, or at the file level) to ensure custom Parameters
             # are registered before metaflow.cli is initialized
