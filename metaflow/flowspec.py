@@ -1,3 +1,4 @@
+from importlib import import_module
 from itertools import islice
 import os
 import sys
@@ -52,7 +53,7 @@ class FlowSpec(object):
 
     _flow_decorators = {}
 
-    def __init__(self, use_cli=True):
+    def __init__(self, use_cli=True, file=None):
         """
         Construct a FlowSpec
 
@@ -68,6 +69,20 @@ class FlowSpec(object):
         self._datastore = None
         self._transition = None
         self._cached_input = {}
+
+        # `Flow` (metaclass) types get `__file__` set automatically; here we support overriding / a sensible default for
+        # regular `FlowSpec` subclasses
+        if file:
+            self.__file__ = file
+        elif not getattr(self, '__file__', None):
+            mod_name = cls.__module__
+            file = getattr(sys, META_KEY, None)
+            if file and mod_name == '__main__':
+                use_cli = False
+            else:
+                module = import_module(mod_name)
+                file = module.__file__
+            cls.__file__ = file
 
         if not getattr(self, '_graph', None):
             # Flow metaclass constructs Graph at FlowSpec-class creation time
