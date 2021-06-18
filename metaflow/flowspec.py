@@ -53,7 +53,7 @@ class FlowSpec(object):
 
     _flow_decorators = {}
 
-    def __init__(self, use_cli=True, file=None):
+    def __init__(self, use_cli=True, args=None, entrypoint=None, file=None, standalone_mode=True):
         """
         Construct a FlowSpec
 
@@ -91,10 +91,29 @@ class FlowSpec(object):
         self._steps = [getattr(self, node.name) for node in self._graph]
 
         if use_cli:
-            # we import cli here to make sure custom parameters in
-            # args.py get fully evaluated before cli.py is imported.
+            if args is None and entrypoint is None and hasattr(sys, META_KEY):
+                # flow's file is being exec'd in FlowSpec.load, and has a `__name__ == '__main__'`-style
+                # flow-invocation that we are currently inside and want to skip
+                return
+
+            # Use entrypoint that selects this flow via `main_cli`
+            if not entrypoint:
+                entrypoint = [
+                    sys.executable,
+                    '-m', 'metaflow.main_cli',
+                    'flow', self.path_spec,
+                ]
+
+            # Import cli here (as opposed to earlier, or at the file level) to ensure custom Parameters
+            # are registered before metaflow.cli is initialized
             from . import cli
-            cli.main(self)
+            cli.main(
+                self,
+                args=args,
+                entrypoint=entrypoint,
+                handle_exceptions=standalone_mode,
+                standalone_mode=standalone_mode,
+            )
 
     @property
     def script_name(self):
