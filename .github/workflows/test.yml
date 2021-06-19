@@ -32,7 +32,8 @@ jobs:
     - name: Install Python 3.x dependencies
       run: |
         python3 -m pip install --upgrade pip
-        python3 -m pip install tox numpy
+        python3 -m pip install -e .
+        python3 -m pip install numpy pytest tox
     
     - name: Set up R 4.1
       if: matrix.lang == 'R'
@@ -58,6 +59,10 @@ jobs:
       run: |
         cd R/tests
         Rscript run_tests.R
+
+    - name: Execute pytest tests
+      if: matrix.lang == 'python'
+      run: pytest
 
     - name: Execute Python tests
       if: matrix.lang == 'python'
