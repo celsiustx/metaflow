@@ -1,6 +1,10 @@
+from importlib import import_module
 import inspect
 import ast
 import re
+
+from metaflow.meta import IS_STEP, META_KEY
+
 
 def deindent_docstring(doc):
     if doc:
@@ -41,9 +45,11 @@ def deindent_docstring(doc):
 
 
 class DAGNode(object):
-    def __init__(self, func_ast, decos, doc):
+    def __init__(self, func_ast, decos, doc, parse=True, file=None, lineno=None):
         self.name = func_ast.name
-        self.func_lineno = func_ast.lineno
+        self.func_lineno = lineno or func_ast.lineno
+        self.file = file
+        self.func_ast = func_ast
         self.decorators = decos
         self.doc = deindent_docstring(doc)
 
@@ -53,10 +59,11 @@ class DAGNode(object):
         self.out_funcs = []
         self.has_tail_next = False
         self.invalid_tail_next = False
-        self.num_args = 0
+        self.num_args = len(func_ast.args.args)
         self.condition = None
         self.foreach_param = None
-        self._parse(func_ast)
+        if parse:
+            self._parse()
 
         # these attributes are populated by _traverse_graph
         self.in_funcs = set()
@@ -69,17 +76,16 @@ class DAGNode(object):
     def _expr_str(self, expr):
         return '%s.%s' % (expr.value.id, expr.attr)
 
-    def _parse(self, func_ast):
-
-        self.num_args = len(func_ast.args.args)
-        tail = func_ast.body[-1]
+    def _parse(self):
+        tail = self.func_ast.body[-1]
 
         # end doesn't need a transition
         if self.name == 'end':
             # TYPE: end
             self.type = 'end'
+            return
 
-        # ensure that the tail an expression
+        # ensure that the tail is an expression
         if not isinstance(tail, ast.Expr):
             return
 
@@ -147,33 +153,81 @@ class DAGNode(object):
             decos=' | '.join(map(str, self.decorators)),
             out=', '.join('[%s]' % x for x in self.out_funcs))
 
+
+def parse_flow(source, mod, name=None):
+    tree = ast.parse(source).body
+    roots = [ n for n in tree if isinstance(n, ast.ClassDef) and (name is None or n.name == name) ]
+    if not roots:
+        if name is None:
+            raise RuntimeError('No roots found in %s' % mod)
+        else:
+            raise RuntimeError('No roots found named %s in %s' % (name, mod))
+    if len(roots) > 1:
+        if name is None:
+            raise RuntimeError('%d roots found in %s' % (len(roots), mod))
+        else:
+            raise RuntimeError('%d roots found named %s in %s' % (len(roots), name, mod))
+    root = roots[0]
+    return root, tree
+
+
 class StepVisitor(ast.NodeVisitor):
 
-    def __init__(self, nodes, flow):
+    def __init__(self, nodes, flow, parse=True):
         self.nodes = nodes
         self.flow = flow
+        self.parse = parse
         super(StepVisitor, self).__init__()
 
     def visit_FunctionDef(self, node):
+
         func = getattr(self.flow, node.name)
-        if hasattr(func, 'is_step'):
-            self.nodes[node.name] = DAGNode(node, func.decorators, func.__doc__)
+        if getattr(func, IS_STEP, None):
+            self.nodes[node.name] = DAGNode(node, func.decorators, func.__doc__, parse=self.parse)
+        elif getattr(func, META_KEY, {}).get(IS_STEP):
+            raise RuntimeError('New-style step found: %s' % node.name)
+
 
 class FlowGraph(object):
 
-    def __init__(self, flow):
+    def __new__(cls, flow, nodes=None):
+        graph = getattr(flow, '_graph', None)
+        if graph:
+            return graph
+        else:
+            return super().__new__(cls)
+
+    def __init__(self, flow, nodes=None):
+        graph = getattr(flow, '_graph', None)
+        if graph:
+            assert graph == self
+            return
         self.name = flow.__name__
-        self.nodes = self._create_nodes(flow)
+        if nodes:
+            self.nodes = nodes
+        else:
+            self.nodes = self._create_nodes(flow)
         self.doc = deindent_docstring(flow.__doc__)
         self._traverse_graph()
         self._postprocess()
 
+        flow._graph = self
+
     def _create_nodes(self, flow):
-        module = __import__(flow.__module__)
-        tree = ast.parse(inspect.getsource(module)).body
-        root = [n for n in tree\
-                if isinstance(n, ast.ClassDef) and n.name == self.name][0]
         nodes = {}
+        name = flow.__name__
+        file = getattr(flow, '__file__', None)
+        if file:
+            src = file
+            with open(file, 'r') as f:
+                source = f.read()
+        else:
+            mod = flow.__module__
+            src = mod
+            module = import_module(mod)
+            source = inspect.getsource(module)
+
+        root, tree = parse_flow(source, src, name)
         StepVisitor(nodes, flow).visit(root)
         return nodes
 
