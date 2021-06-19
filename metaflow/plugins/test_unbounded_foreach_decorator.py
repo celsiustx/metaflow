@@ -109,7 +109,7 @@ class InternalTestUnboundedForeachDecorator(StepDecorator):
             kwargs["retry_count"] = 0
 
             cmd = cli_args.step_command(
-                executable, script, step_name, step_kwargs=kwargs
+                executable, script, step_name, step_kwargs=kwargs, flow=flow
             )
             step_cli = u" ".join(cmd)
             # Print cmdline for execution. Doesn't work without the temporary

@@ -110,7 +110,7 @@ class CardDecorator(StepDecorator):
         if not is_task_ok:
             return
         runspec = "/".join([current.run_id, current.step_name, current.task_id])
-        self._run_cards_subprocess(runspec)
+        self._run_cards_subprocess(runspec, flow)
 
     @staticmethod
     def _options(mapping):
@@ -142,11 +142,13 @@ class CardDecorator(StepDecorator):
             top_level_options.update(deco.get_top_level_options())
         return list(self._options(top_level_options))
 
-    def _run_cards_subprocess(self, runspec):
+    def _run_cards_subprocess(self, runspec, flow):
         executable = sys.executable
         cmd = [
             executable,
             sys.argv[0],
+            "flow",
+            flow.path_spec,
         ]
         cmd += self._create_top_level_args() + [
             "card",
