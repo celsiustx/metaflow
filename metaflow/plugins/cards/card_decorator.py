@@ -179,7 +179,7 @@ class CardDecorator(StepDecorator):
             return
         component_strings = current.card._serialize_components(self._card_uuid)
         runspec = "/".join([current.run_id, current.step_name, current.task_id])
-        self._run_cards_subprocess(runspec, component_strings)
+        self._run_cards_subprocess(runspec, component_strings, flow)
 
     @staticmethod
     def _options(mapping):
@@ -205,7 +205,7 @@ class CardDecorator(StepDecorator):
         }
         return list(self._options(top_level_options))
 
-    def _run_cards_subprocess(self, runspec, component_strings):
+    def _run_cards_subprocess(self, runspec, component_strings, flow):
         temp_file = None
         if len(component_strings) > 0:
             temp_file = tempfile.NamedTemporaryFile("w", suffix=".json")
@@ -215,6 +215,8 @@ class CardDecorator(StepDecorator):
         cmd = [
             executable,
             sys.argv[0],
+            "flow",
+            flow.path_spec,
         ]
         cmd += self._create_top_level_args() + [
             "card",
