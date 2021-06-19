@@ -45,13 +45,21 @@ def deindent_docstring(doc):
 
 
 class DAGNode(object):
-    def __init__(self, func_ast, decos, doc, parse=True, file=None, lineno=None):
-        self.name = func_ast.name
-        self.func_lineno = lineno or func_ast.lineno
-        self.file = file
+    def __init__(self, func_ast, func, file=None, lineno=None, parse=True):
         self.func_ast = func_ast
-        self.decorators = decos
-        self.doc = deindent_docstring(doc)
+        self.func = func
+        self.file = file
+        self.func_lineno = lineno or func_ast.lineno
+
+        self.name = func_ast.name
+        if func:
+            self.meta = getattr(func, META_KEY, {})
+            self.decorators = func.decorators
+            self.doc = deindent_docstring(func.__doc__)
+        else:
+            self.meta = {}
+            self.decorators = []
+            self.doc = None
 
         # these attributes are populated by _parse
         self.tail_next_lineno = 0
@@ -183,7 +191,7 @@ class StepVisitor(ast.NodeVisitor):
 
         func = getattr(self.flow, node.name)
         if getattr(func, IS_STEP, None):
-            self.nodes[node.name] = DAGNode(node, func.decorators, func.__doc__, parse=self.parse)
+            self.nodes[node.name] = DAGNode(node, func, parse=self.parse)
         elif getattr(func, META_KEY, {}).get(IS_STEP):
             raise RuntimeError('New-style step found: %s' % node.name)
 
