@@ -60,7 +60,7 @@ def check_reserved_words(graph):
 @linter.ensure_fundamentals
 @linter.check
 def check_basic_steps(graph):
-    msg ="Add %s *%s* step in your flow."
+    msg = "Add %s *%s* step in your flow."
     for prefix, node in (('a', 'start'), ('an', 'end')):
         if node not in graph:
             raise LintWarn(msg % (prefix, node))
