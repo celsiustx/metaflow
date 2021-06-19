@@ -13,19 +13,30 @@ from metaflow.util import resolve_identity
 
 
 test_api_path = join(tests_dir, 'test_api.py')
+inherited_flows_path = join(test_flows_dir, 'inherited_flows.py')
 old_flow123_path = join(test_flows_dir, 'old_flow123.py')
 old_flow1_path = join(test_flows_dir, 'old_flow1.py')
+flow1_path = join(test_flows_dir, 'flow1.py')
 
 
 flow_files = {
+    'NewFlow': test_api_path,
     'OldFlow': test_api_path,
     'OldFlow1': old_flow1_path,
     'OldFlow12': old_flow123_path,
     'OldFlow123': old_flow123_path,
+    'Flow123': inherited_flows_path,
+    'Flow12': inherited_flows_path,
+    'Flow1': flow1_path,
 }
 
 # Verify running flows without a subcommand prints the expected subcommand-listing / help msg
-@parametrize('flow', ['OldFlow',])
+@parametrize('flow', [
+    'OldFlow',
+    'NewFlow',
+    'Flow123',
+    'Flow12',
+])
 def test_flow_base_cmd(flow):
     file = flow_files[flow]
     flow_path_spec = '%s:%s' % (file, flow)
@@ -91,7 +102,7 @@ Step end
     verify_output(cmd, expected_out, expected_err)
 
 
-@parametrize('flow', ['OldFlow',])
+@parametrize('flow', ['NewFlow','OldFlow',])
 @parametrize('entrypoint', [[python,'-m','metaflow.main_cli'],[metaflow_bin]])
 def test_run(flow, entrypoint):
     # TODO: use a fresh metaflow db in a tempdir to avoid races / concurrent runs by different processes
@@ -111,7 +122,7 @@ cmds = {
     'python file': [ python, '{flow_path}', 'run', ],
 }
 @parametrize('name', cmds.keys())
-@parametrize('flow', ['OldFlow123',])
+@parametrize('flow', ['OldFlow123','Flow123',])
 def test_run_via_main(name, flow):
     file = flow_files[flow]
     cmd = cmds[name]
@@ -122,7 +133,7 @@ def test_run_via_main(name, flow):
 
 
 @parametrize('name', ['python module', 'metaflow'])
-@parametrize('flow', ['OldFlow12',])
+@parametrize('flow', ['OldFlow12','Flow12',])
 def test_run_nondefault_despite_main(name, flow):
     cmd = cmds[name]
     file = flow_files[flow]
@@ -134,7 +145,7 @@ def test_run_nondefault_despite_main(name, flow):
         data.checked
 
 
-@parametrize('flow', ['OldFlow1',])
+@parametrize('flow', ['OldFlow1','Flow1',])
 def test_flow_file_form(flow):
     file = flow_files[flow]
     user = resolve_identity()
