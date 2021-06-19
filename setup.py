@@ -1,6 +1,12 @@
 from setuptools import setup, find_packages
 
 version = '2.2.8'
+tests_require = [
+    'coverage',
+    'pandas',
+    'pytest',
+    'tox',
+]
 
 setup(name='metaflow',
       version=version,
@@ -16,11 +22,10 @@ setup(name='metaflow',
         metaflow=metaflow.main_cli:main
       ''',
       install_requires = [
-        'click>=7.0',
+        'click>=7.0,<8',  # "TypeError: expected str, bytes or os.PathLike object, not function" in Click 8.0, metaflow/includefile.py:230: in convert
         'requests',
         'boto3',
-        'pylint<2.5.0'
+        'pylint<2.5.0',
       ],
-      tests_require = [
-        'coverage'
-      ])
+      extras_require = { 'test': tests_require },
+      tests_require = tests_require)
