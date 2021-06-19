@@ -9,6 +9,7 @@ from .exception import (
     MetaflowException,
     InvalidDecoratorAttribute,
 )
+from .meta import IS_STEP
 
 import click
 
@@ -399,7 +400,7 @@ def _base_step_decorator(decotype, *args, **kwargs):
         # No keyword arguments specified for the decorator, e.g. @foobar.
         # The first argument is the function to be decorated.
         func = args[0]
-        if not hasattr(func, "is_step"):
+        if not hasattr(func, IS_STEP):
             raise BadStepDecoratorException(decotype.name, func)
 
         # Only the first decorator applies
@@ -484,7 +485,7 @@ def step(f):
     """
     The step decorator. Makes a method a step in the workflow.
     """
-    f.is_step = True
+    setattr(f, IS_STEP, True)
     f.decorators = []
     try:
         # python 3
