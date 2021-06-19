@@ -96,7 +96,7 @@ for m in _override_modules:
 from .event_logger import EventLogger
 
 # Flow spec
-from .flowspec import FlowSpec
+from .flowspec import FlowSpec, FlowSpecMeta
 from .includefile import IncludeFile
 from .parameters import Parameter, JSONTypeClass
 
