@@ -43,8 +43,8 @@ jobs:
 
     - name: Install Python 3.x dependencies
       run: |
-        python3 -m pip install --upgrade pip
-        python3 -m pip install tox numpy
+        python3 -m pip install --upgrade pip setuptools wheel
+        python3 -m pip install -e .[test]
     
     - name: Set up R 4.1
       if: matrix.lang == 'R'
