@@ -175,7 +175,12 @@ class BatchDecorator(StepDecorator):
             cli_args.command_options.update(self.attributes)
             cli_args.command_options["run-time-limit"] = self.run_time_limit
             if not R.use_r():
-                cli_args.entrypoint[0] = sys.executable
+                entrypoint = cli_args.entrypoint
+                cli_args.entrypoint = [
+                    sys.executable,
+                    "-m",
+                    "metaflow.cmd.main_cli",
+                ] + entrypoint[1:]
 
     def task_pre_step(
         self,
