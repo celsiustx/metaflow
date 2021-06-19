@@ -2,11 +2,13 @@ import click
 import json
 import os
 import shutil
+import sys
 
 from os.path import expanduser
 
 from metaflow.datastore.local import LocalDataStore
-from metaflow.metaflow_config import DATASTORE_LOCAL_DIR, DEFAULT_METADATA
+from metaflow.flowspec import FlowSpec
+from metaflow.metaflow_config import DATASTORE_LOCAL_DIR
 from metaflow.util import to_unicode
 
 
@@ -114,6 +116,21 @@ def status():
     echo('Available flows:', fg='cyan', bold=True)
     for flow in Metaflow():
         echo('* %s' % flow, fg='cyan')
+
+@main.command(
+    context_settings=dict(ignore_unknown_options=True,),
+    help='Select a flow.',
+)
+@click.argument('flow_path')
+@click.argument('extra_args', nargs=-1, type=click.UNPROCESSED)
+def flow(flow_path, extra_args):
+    flow_spec = FlowSpec.load(flow_path)
+    argv = sys.argv
+    entrypoint = argv[:-len(extra_args)]
+    if __name__ == '__main__':
+        entrypoint = [sys.executable] + entrypoint
+    flow_spec(args=extra_args, entrypoint=entrypoint)
+
 
 @main.group(help="Browse and access the metaflow tutorial episodes.")
 def tutorials():
@@ -611,3 +628,7 @@ def aws(ctx, profile):
                                         existing_env.get('METAFLOW_SFN_DYNAMO_DB_TABLE'),
                                      show_default=True)
     persist_env({k: v for k, v in env.items() if v}, profile)
+
+
+if __name__ == '__main__':
+    main()
