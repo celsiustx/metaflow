@@ -1,6 +1,7 @@
 from importlib import import_module
 from itertools import islice
 import os
+import sys
 import traceback
 from types import FunctionType, MethodType
 
@@ -98,7 +99,7 @@ class FlowSpec(object, metaclass=FlowSpecMeta):
 
     _flow_decorators = {}
 
-    def __init__(self, use_cli=True):
+    def __init__(self, use_cli=True, args=None, entrypoint=None, standalone_mode=True):
         """
         Construct a FlowSpec
 
@@ -115,11 +116,24 @@ class FlowSpec(object, metaclass=FlowSpecMeta):
         self._cached_input = {}
 
         if use_cli:
-            # we import cli here to make sure custom parameters in
-            # args.py get fully evaluated before cli.py is imported.
+            # Use entrypoint that selects this flow via `main_cli`
+            if not entrypoint:
+                entrypoint = [
+                    sys.executable,
+                    self.file,
+                ]
+
+            # Import cli here (as opposed to earlier, or at the file level) to ensure custom Parameters
+            # are registered before metaflow.cli is initialized
             from . import cli
 
-            cli.main(self)
+            cli.main(
+                self,
+                args=args,
+                entrypoint=entrypoint,
+                handle_exceptions=standalone_mode,
+                standalone_mode=standalone_mode,
+            )
 
     @property
     def script_name(self):
