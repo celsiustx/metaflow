@@ -923,7 +923,7 @@ def start(
     cli_args._set_top_kwargs(ctx.params)
     obj.echo = echo
     obj.echo_always = echo_always
-    obj.graph = FlowGraph(flow.__class__)
+    obj.graph = flow._graph
     obj.logger = logger
     obj.check = _check
     obj.pylint = pylint
