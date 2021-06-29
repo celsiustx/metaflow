@@ -1,11 +1,21 @@
 from os.path import dirname, join
+from sys import executable as python
+
+import pytest
+
+parametrize = pytest.mark.parametrize
 
 from metaflow import Flow
+import metaflow.metaflow_version
 from metaflow.exception import MetaflowNotFound
 
 
+metaflow_bin = join(dirname(python), "metaflow")
+metaflow_version = metaflow.metaflow_version.get_version()
+
 tests_dir = dirname(__file__)
 test_flows_dir = join(tests_dir, "flows")
+metaflow_dir = dirname(tests_dir)
 
 
 def flow_path(name):
