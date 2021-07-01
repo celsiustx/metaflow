@@ -1,5 +1,12 @@
-from metaflow.tests.flows.branching import OldBranchingFlow
-from metaflow.tests.flows.joins import OldJoinFlow1, OldJoinFlow2, OldForeachSplitAnd
+from metaflow.tests.flows.branching import NewBranchingFlow, OldBranchingFlow
+from metaflow.tests.flows.joins import (
+    NewJoinFlow1,
+    OldJoinFlow1,
+    NewJoinFlow2,
+    OldJoinFlow2,
+    OldForeachSplitAnd,
+    NewForeachSplitAnd,
+)
 from metaflow.tests.utils import check_graph, parametrize, run
 
 
@@ -124,6 +131,7 @@ results = [
     "flow",
     [
         OldJoinFlow1,
+        NewJoinFlow1,
     ],
 )
 def test_joins1(flow):
@@ -233,6 +241,7 @@ join_flow2_graph = [
     "flow",
     [
         OldJoinFlow2,
+        NewJoinFlow2,
     ],
 )
 def test_joins2(flow):
@@ -299,12 +308,23 @@ branching_graph = [
         (
             OldBranchingFlow,
             [
-                7,
-                11,
-                16,
-                21,
-                26,
-                35,
+                9,
+                13,
+                18,
+                23,
+                28,
+                37,
+            ],
+        ),
+        (
+            NewBranchingFlow,
+            [
+                42,
+                43,
+                47,
+                51,
+                55,
+                62,
             ],
         ),
     ],
@@ -380,6 +400,7 @@ foreach_splitand_graph = [
     "flow",
     [
         OldForeachSplitAnd,
+        NewForeachSplitAnd,
     ],
 )
 def test_foreach_splitand(flow):
