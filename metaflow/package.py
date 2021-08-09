@@ -1,5 +1,6 @@
 import importlib
 import os
+from os import getcwd
 import sys
 import tarfile
 import time
@@ -49,11 +50,18 @@ class MetaflowPackage(object):
                 deco.package_init(flow, step.__name__, environment)
         self.blob = self._make()
 
-    def _walk(self, root, exclude_hidden=True, addl_suffixes=None):
+    def _walk(
+        self, root, exclude_hidden=True, addl_suffixes=None, parent_dir_namespace=True
+    ):
         if addl_suffixes is None:
             addl_suffixes = []
         root = to_unicode(root)  # handle files/folder with non ascii chars
-        prefixlen = len("%s/" % os.path.dirname(root))
+        if parent_dir_namespace:
+            prefixlen = len("%s/" % os.path.dirname(root))
+        else:
+            if not root.endswith("/"):
+                root += "/"
+            prefixlen = len(root)
         for path, dirs, files in os.walk(root):
             if exclude_hidden and "/." in path:
                 continue
@@ -116,8 +124,8 @@ class MetaflowPackage(object):
                 yield path_tuple
         else:
             # the user's working directory
-            flowdir = os.path.dirname(os.path.abspath(sys.argv[0])) + "/"
-            for path_tuple in self._walk(flowdir):
+            cwd = getcwd()
+            for path_tuple in self._walk(cwd, parent_dir_namespace=False):
                 yield path_tuple
 
     def _add_info(self, tar):
