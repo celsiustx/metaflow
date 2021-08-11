@@ -84,15 +84,15 @@ class MetaflowEnvironment(object):
             BASH_MFLOG,
             "mflog 'Setting up task environment.'",
             "%s -m pip install awscli requests boto3 -qqq" % self._python(),
-            "mkdir metaflow",
+            "mkdir -p metaflow",
             "cd metaflow",
-            "mkdir .metaflow",  # mute local datastore creation log
+            "mkdir -p .metaflow",  # mute local datastore creation log
             "i=0; while [ $i -le 5 ]; do "
-            "mflog 'Downloading code package...'; "
+            "mflog 'Downloading code package %s...'; "
             "%s -m awscli s3 cp %s job.tar >/dev/null && \
                         mflog 'Code package downloaded.' && break; "
             "sleep 10; i=$((i+1)); "
-            "done" % (self._python(), code_package_url),
+            "done" % (code_package_url, self._python(), code_package_url),
             "if [ $i -gt 5 ]; then "
             "mflog 'Failed to download code package from %s "
             "after 6 tries. Exiting...' && exit 1; "
