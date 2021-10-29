@@ -5,7 +5,8 @@ from metaflow.exception import MetaflowNotFound
 
 
 tests_dir = dirname(__file__)
-test_flows_dir = join(tests_dir, 'flows')
+test_flows_dir = join(tests_dir, "flows")
+
 
 def flow_path(name):
     return join(test_flows_dir, name)
@@ -26,17 +27,19 @@ def run(flow):
     except MetaflowNotFound:
         n_runs_before = 0
 
-    f = flow(args=('run',), standalone_mode=False)
+    f = flow(args=("run",), standalone_mode=False)
     assert f._success
 
     runs = list(Flow(name))
     n_runs_after = len(runs)
     # TODO: more rigorously verify we are grabbing the sole new run / use a tmpdir as metaflow db
-    assert n_runs_before + 1 == n_runs_after, ('n_runs_before=%d + 1 != n_runs_after=%d' % (n_runs_before, n_runs_after))
+    assert (
+        n_runs_before + 1 == n_runs_after
+    ), "n_runs_before=%d + 1 != n_runs_after=%d" % (n_runs_before, n_runs_after)
     run = runs[0]
     data = run.data
     # By default, convert the returned MetaflowData object to a dict
-    return { k: v.data for k,v in data._artifacts.items() }
+    return {k: v.data for k, v in data._artifacts.items()}
 
 
 def check_graph(flow_spec, expected):
@@ -51,13 +54,13 @@ def check_graph(flow_spec, expected):
     graph = flow._graph
     nodes = graph.nodes
     actual = []
-    for k,v in nodes.items():
+    for k, v in nodes.items():
         assert k == v.name
-        actual.append({ col: getattr(v, col) for col in cols if hasattr(v, col) })
+        actual.append({col: getattr(v, col) for col in cols if hasattr(v, col)})
 
     # pytest doesn't give a clean error msg / diff below, for some reason; pretty-print the `actual` and `expected`
     # values using this helper
     def pretty(arr):
-        return '[\n\t%s\n]' % '\n\t'.join([ str(r) for r in arr ])
+        return "[\n\t%s\n]" % "\n\t".join([str(r) for r in arr])
 
-    assert actual == expected, ("%s\n!=\n%s" % (pretty(actual), pretty(expected)))
+    assert actual == expected, "%s\n!=\n%s" % (pretty(actual), pretty(expected))

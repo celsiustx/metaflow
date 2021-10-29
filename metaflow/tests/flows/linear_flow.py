@@ -2,9 +2,9 @@ from metaflow import FlowSpec, step
 
 
 class LinearFlow(FlowSpec):
-    '''Simple flow with 3 linear steps that read/write flow properties
+    """Simple flow with 3 linear steps that read/write flow properties
 
-    Also includes a `@property` and a method, verifying that they can coexist with `@step` functions'''
+    Also includes a `@property` and a method, verifying that they can coexist with `@step` functions"""
 
     @step
     def start(self):
@@ -22,7 +22,7 @@ class LinearFlow(FlowSpec):
 
     @step
     def three(self):
-        assert (self.a, self.b, self.foo, self.mth()) == (111, 222, '`foo`', '`mth`')
+        assert (self.a, self.b, self.foo, self.mth()) == (111, 222, "`foo`", "`mth`")
         self.checked = True
         self.next(self.end)
 
@@ -32,11 +32,11 @@ class LinearFlow(FlowSpec):
 
     @property
     def foo(self):
-        return '`foo`'
+        return "`foo`"
 
     def mth(self):
-        return '`mth`'
+        return "`mth`"
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     LinearFlow()
