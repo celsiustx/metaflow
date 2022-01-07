@@ -3,11 +3,8 @@ import gzip
 import io
 import json
 import os
-import pickle
-import tempfile
 
 from hashlib import sha1
-from shutil import move
 
 import click
 
@@ -232,7 +229,7 @@ class FilePathClass(click.ParamType):
     #    + If the value is already such a string, nothing happens and it returns that same value
     #    + If the value is a LocalFile, it will persist the local file and return the path
     #      of the persisted file
-    #  - The artifact will be persisted prior to any run (for non-scheduled runs through persist_parameters)
+    #  - The artifact will be persisted prior to any run (for non-scheduled runs through persist_constants)
     #    + This will therefore persist a simple string
     #  - When the parameter is loaded again, the load_parameter in the IncludeFile class will get called
     #    which will download and return the bytes of the persisted file.

@@ -165,12 +165,21 @@ class Parameter(object):
         self.kwargs = kwargs
         # TODO: check that the type is one of the supported types
         param_type = self.kwargs["type"] = self._get_type(kwargs)
+        reserved_params = [
+            "params",
+            "with",
+            "max-num-splits",
+            "max-workers",
+            "tag",
+            "run-id-file",
+            "namespace",
+        ]
 
-        if self.name == "params":
+        if self.name in reserved_params:
             raise MetaflowException(
-                "Parameter name 'params' is a reserved "
+                "Parameter name '%s' is a reserved "
                 "word. Please use a different "
-                "name for your parameter."
+                "name for your parameter." % (name)
             )
 
         # make sure the user is not trying to pass a function in one of the
@@ -250,26 +259,3 @@ def add_custom_parameters(deploy_mode=False):
         return cmd
 
     return wrapper
-
-
-def set_parameters(flow, kwargs):
-    seen = set()
-    for var, param in flow._get_parameters():
-        norm = param.name.lower()
-        if norm in seen:
-            raise MetaflowException(
-                "Parameter *%s* is specified twice. "
-                "Note that parameter names are "
-                "case-insensitive." % param.name
-            )
-        seen.add(norm)
-
-    flow._success = True
-    for var, param in flow._get_parameters():
-        val = kwargs[param.name.replace("-", "_").lower()]
-        # Support for delayed evaluation of parameters. This is used for
-        # includefile in particular
-        if callable(val):
-            val = val()
-        val = val.split(param.separator) if val and param.separator else val
-        setattr(flow, var, val)

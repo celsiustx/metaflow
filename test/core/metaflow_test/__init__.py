@@ -1,5 +1,4 @@
 import sys
-import os
 from metaflow.exception import MetaflowException
 from metaflow import current
 
@@ -36,6 +35,10 @@ class AssertArtifactFailed(Exception):
 
 
 class AssertLogFailed(Exception):
+    pass
+
+
+class AssertCardFailed(Exception):
     pass
 
 
@@ -90,6 +93,7 @@ class MetaflowTest(object):
     PRIORITY = 999999999
     PARAMETERS = {}
     INCLUDE_FILES = {}
+    CLASS_VARS = {}
     HEADER = ""
 
     def check_results(self, flow, checker):
@@ -118,6 +122,9 @@ class MetaflowCheck(object):
         raise NotImplementedError()
 
     def assert_log(self, step, logtype, value, exact_match=True):
+        raise NotImplementedError()
+
+    def get_card(self, step, task, card_type):
         raise NotImplementedError()
 
 

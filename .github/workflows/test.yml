@@ -1,29 +1,18 @@
 name: Test
-on: [push, pull_request]
+on:
+  push:
+    branches:
+    - master
+  pull_request:
+    branches:
+    - master
 jobs:
-  formatter:
-    name: runner / black
+  pre-commit:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v2
-      - name: Check files using the black formatter
-        uses: rickstaa/action-black@v1
-        id: action_black
-        with:
-          black_args: "."
-      - name: Create Pull Request
-        if: steps.action_black.outputs.is_formatted == 'true'
-        uses: peter-evans/create-pull-request@v3
-        with:
-          token: ${{ secrets.GITHUB_TOKEN }}
-          title: "Format Python code with psf/black push"
-          commit-message: ":art: Format Python code with psf/black"
-          body: |
-            There appear to be some python formatting errors in #${{ github.event.number }} - ${{ github.sha }}.
-            This pull request uses the [psf/black](https://github.com/psf/black) formatter to fix these issues.
-            `black .`
-          base: ${{ github.head_ref }}
-          branch: actions/black
+    - uses: actions/checkout@v2
+    - uses: actions/setup-python@v2
+    - uses: pre-commit/action@v2.0.3
   test:
     name: tests / ${{ matrix.lang }} tests on ${{ matrix.os }}
     runs-on: ${{ matrix.os }}
@@ -35,18 +24,6 @@ jobs:
     steps:
     - uses: actions/checkout@v2
 
-    - name: Set up Python 2.x
-      if: matrix.lang == 'Python'
-      uses: actions/setup-python@v2
-      with:
-        python-version: '2.x'
-
-    - name: Install Python 2.x dependencies
-      if: matrix.lang == 'Python'
-      run: |
-        python2 -m pip install --upgrade pip
-        python2 -m pip install tox
-
     - name: Set up Python 3.7
       uses: actions/setup-python@v2
       with:
@@ -54,9 +31,9 @@ jobs:
 
     - name: Install Python 3.x dependencies
       run: |
-        python3 -m pip install --upgrade pip
-        python3 -m pip install tox numpy
-    
+        python3 -m pip install --upgrade pip setuptools wheel
+        python3 -m pip install -e .[test]
+
     - name: Set up R 4.1
       if: matrix.lang == 'R'
       uses: r-lib/actions/setup-r@v1
@@ -81,6 +58,10 @@ jobs:
       run: |
         cd R/tests
         Rscript run_tests.R
+
+    - name: Execute pytest tests
+      if: matrix.lang == 'python'
+      run: pytest
 
     - name: Execute Python tests
       if: matrix.lang == 'python'

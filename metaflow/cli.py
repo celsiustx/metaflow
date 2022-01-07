@@ -1,9 +1,9 @@
+from datetime import datetime
+from functools import wraps
 import inspect
 import os
 import sys
 import traceback
-from datetime import datetime
-from functools import wraps
 
 import click
 
@@ -20,7 +20,6 @@ from .util import (
     decompress_list,
     write_latest_run_id,
     get_latest_run_id,
-    to_unicode,
 )
 from .task import MetaflowTask
 from .exception import CommandException, MetaflowException
@@ -140,11 +139,11 @@ def cli(ctx):
 @click.pass_obj
 def check(obj, warnings=False):
     _check(obj.graph, obj.flow, obj.environment, pylint=obj.pylint, warnings=warnings)
-    fname = inspect.getfile(obj.flow.__class__)
+    file = obj.flow.file
     echo(
         "\n*'{cmd} show'* shows a description of this flow.\n"
         "*'{cmd} run'* runs the flow locally.\n"
-        "*'{cmd} help'* shows all available commands and options.\n".format(cmd=fname),
+        "*'{cmd} help'* shows all available commands and options.\n".format(cmd=file),
         highlight="magenta",
         highlight_bold=False,
     )
@@ -476,6 +475,12 @@ def logs(obj, input_path, stdout=None, stderr=None, both=None, timestamps=False)
     type=click.Choice(["none", UBF_CONTROL, UBF_TASK]),
     help="Provides additional context if this task is of type " "unbounded foreach.",
 )
+@click.option(
+    "--num-parallel",
+    default=0,
+    type=int,
+    help="Number of parallel instances of a step. Ignored in local mode (see parallel decorator code).",
+)
 @click.pass_context
 def step(
     ctx,
@@ -492,6 +497,7 @@ def step(
     clone_run_id=None,
     decospecs=None,
     ubf_context="none",
+    num_parallel=None,
 ):
     if ubf_context == "none":
         ubf_context = None
@@ -533,7 +539,7 @@ def step(
         ubf_context,
     )
     if clone_only:
-        task.clone_only(step_name, run_id, task_id, clone_only)
+        task.clone_only(step_name, run_id, task_id, clone_only, retry_count)
     else:
         task.run_step(
             step_name,
@@ -592,8 +598,8 @@ def init(obj, run_id=None, task_id=None, tags=None, **kwargs):
         obj.monitor,
         run_id=run_id,
     )
-    parameters.set_parameters(obj.flow, kwargs)
-    runtime.persist_parameters(task_id=task_id)
+    obj.flow._set_constants(kwargs)
+    runtime.persist_constants(task_id=task_id)
 
 
 def common_run_options(func):
@@ -711,7 +717,7 @@ def resume(
         max_num_splits=max_num_splits,
         max_log_size=max_log_size * 1024 * 1024,
     )
-    runtime.persist_parameters()
+    runtime.persist_constants()
     runtime.execute()
 
     write_run_id(run_id_file, runtime.run_id)
@@ -766,8 +772,8 @@ def run(
     write_latest_run_id(obj, runtime.run_id)
     write_run_id(run_id_file, runtime.run_id)
 
-    parameters.set_parameters(obj.flow, kwargs)
-    runtime.persist_parameters()
+    obj.flow._set_constants(kwargs)
+    runtime.persist_constants()
     runtime.execute()
 
 
@@ -789,7 +795,7 @@ def before_run(obj, tags, decospecs):
     # _init_step_decorators doesn't get called twice.
     if decospecs:
         decorators._attach_decorators(obj.flow, decospecs)
-        obj.graph = FlowGraph(obj.flow.__class__)
+        obj.graph = obj.flow._graph
     obj.check(obj.graph, obj.flow, obj.environment, pylint=obj.pylint)
     # obj.environment.init_environment(obj.logger)
 
@@ -908,13 +914,15 @@ def start(
     else:
         echo = echo_always
 
-    ctx.obj.version = metaflow_version.get_version()
-    version = ctx.obj.version
+    obj = ctx.obj
+    obj.version = metaflow_version.get_version()
+    flow = obj.flow
+    version = obj.version
     if use_r():
         version = metaflow_r_version()
 
     echo("Metaflow %s" % version, fg="magenta", bold=True, nl=False)
-    echo(" executing *%s*" % ctx.obj.flow.name, fg="magenta", nl=False)
+    echo(" executing *%s*" % flow.name, fg="magenta", nl=False)
     echo(" for *%s*" % resolve_identity(), fg="magenta")
 
     if coverage:
@@ -930,88 +938,84 @@ def start(
         cov.start()
 
     cli_args._set_top_kwargs(ctx.params)
-    ctx.obj.echo = echo
-    ctx.obj.echo_always = echo_always
-    ctx.obj.graph = FlowGraph(ctx.obj.flow.__class__)
-    ctx.obj.logger = logger
-    ctx.obj.check = _check
-    ctx.obj.pylint = pylint
-    ctx.obj.top_cli = cli
-    ctx.obj.package_suffixes = package_suffixes.split(",")
-    ctx.obj.reconstruct_cli = _reconstruct_cli
+    obj.echo = echo
+    obj.echo_always = echo_always
+    obj.graph = FlowGraph(flow.__class__)
+    obj.logger = logger
+    obj.check = _check
+    obj.pylint = pylint
+    obj.top_cli = cli
+    obj.package_suffixes = package_suffixes.split(",")
+    obj.reconstruct_cli = _reconstruct_cli
 
-    ctx.obj.event_logger = EventLogger(event_logger)
+    obj.event_logger = EventLogger(event_logger)
 
-    ctx.obj.environment = [
+    obj.environment = [
         e for e in ENVIRONMENTS + [MetaflowEnvironment] if e.TYPE == environment
     ][0](ctx.obj.flow)
-    ctx.obj.environment.validate_environment(echo)
+    obj.environment.validate_environment(echo)
 
-    ctx.obj.monitor = Monitor(monitor, ctx.obj.environment, ctx.obj.flow.name)
-    ctx.obj.monitor.start()
+    obj.monitor = Monitor(monitor, obj.environment, flow.name)
+    obj.monitor.start()
 
-    ctx.obj.metadata = [m for m in METADATA_PROVIDERS if m.TYPE == metadata][0](
-        ctx.obj.environment, ctx.obj.flow, ctx.obj.event_logger, ctx.obj.monitor
+    obj.metadata = [m for m in METADATA_PROVIDERS if m.TYPE == metadata][0](
+        obj.environment, flow, obj.event_logger, obj.monitor
     )
 
-    ctx.obj.datastore_impl = DATASTORES[datastore]
+    obj.datastore_impl = DATASTORES[datastore]
 
     if datastore_root is None:
-        datastore_root = ctx.obj.datastore_impl.get_datastore_root_from_config(
-            ctx.obj.echo
-        )
+        datastore_root = obj.datastore_impl.get_datastore_root_from_config(obj.echo)
     if datastore_root is None:
         raise CommandException(
             "Could not find the location of the datastore -- did you correctly set the "
             "METAFLOW_DATASTORE_SYSROOT_%s environment variable?" % datastore.upper()
         )
 
-    ctx.obj.datastore_impl.datastore_root = datastore_root
+    obj.datastore_impl.datastore_root = datastore_root
 
-    FlowDataStore.default_storage_impl = ctx.obj.datastore_impl
-    ctx.obj.flow_datastore = FlowDataStore(
-        ctx.obj.flow.name,
-        ctx.obj.environment,
-        ctx.obj.metadata,
-        ctx.obj.event_logger,
-        ctx.obj.monitor,
+    FlowDataStore.default_storage_impl = obj.datastore_impl
+    obj.flow_datastore = FlowDataStore(
+        flow.name,
+        obj.environment,
+        obj.metadata,
+        obj.event_logger,
+        obj.monitor,
     )
 
     # It is important to initialize flow decorators early as some of the
     # things they provide may be used by some of the objects initialize after.
     decorators._init_flow_decorators(
-        ctx.obj.flow,
-        ctx.obj.graph,
-        ctx.obj.environment,
-        ctx.obj.flow_datastore,
-        ctx.obj.metadata,
-        ctx.obj.logger,
+        flow,
+        obj.graph,
+        obj.environment,
+        obj.flow_datastore,
+        obj.metadata,
+        obj.logger,
         echo,
         deco_options,
     )
 
     if decospecs:
-        decorators._attach_decorators(ctx.obj.flow, decospecs)
+        decorators._attach_decorators(flow, decospecs)
 
     # initialize current and parameter context for deploy-time parameters
-    current._set_env(flow_name=ctx.obj.flow.name, is_running=False)
-    parameters.set_parameter_context(
-        ctx.obj.flow.name, ctx.obj.echo, ctx.obj.flow_datastore
-    )
+    current._set_env(flow_name=flow.name, is_running=False)
+    parameters.set_parameter_context(flow.name, obj.echo, obj.flow_datastore)
 
     if ctx.invoked_subcommand not in ("run", "resume"):
         # run/resume are special cases because they can add more decorators with --with,
         # so they have to take care of themselves.
-        decorators._attach_decorators(ctx.obj.flow, ctx.obj.environment.decospecs())
+        decorators._attach_decorators(flow, obj.environment.decospecs())
         decorators._init_step_decorators(
-            ctx.obj.flow,
-            ctx.obj.graph,
-            ctx.obj.environment,
-            ctx.obj.flow_datastore,
-            ctx.obj.logger,
+            flow,
+            obj.graph,
+            obj.environment,
+            obj.flow_datastore,
+            obj.logger,
         )
         # TODO (savin): Enable lazy instantiation of package
-        ctx.obj.package = None
+        obj.package = None
     if ctx.invoked_subcommand is None:
         ctx.invoke(check)
 
@@ -1037,9 +1041,9 @@ def _check(graph, flow, environment, pylint=True, warnings=False, **kwargs):
     linter.run_checks(graph, **kwargs)
     echo("The graph looks good!", fg="green", bold=True, indent=True)
     if pylint:
-        echo("Running pylint...", fg="magenta", bold=False)
-        fname = inspect.getfile(flow.__class__)
-        pylint = PyLint(fname)
+        file = flow.file
+        echo("Running pylint on %s" % file, fg="magenta", bold=False)
+        pylint = PyLint(file)
         if pylint.has_pylint():
             pylint_is_happy, pylint_exception_msg = pylint.run(
                 warnings=warnings,
@@ -1086,7 +1090,9 @@ class CliState(object):
         self.flow = flow
 
 
-def main(flow, args=None, handle_exceptions=True, entrypoint=None):
+def main(
+    flow, args=None, handle_exceptions=True, entrypoint=None, standalone_mode=True
+):
     # Ignore warning(s) and prevent spamming the end-user.
     # TODO: This serves as a short term workaround for RuntimeWarning(s) thrown
     # in py3.8 related to log buffering (bufsize=1).
@@ -1099,14 +1105,14 @@ def main(flow, args=None, handle_exceptions=True, entrypoint=None):
     state = CliState(flow)
     state.entrypoint = entrypoint
 
+    start_kwargs = dict(
+        auto_envvar_prefix="METAFLOW", obj=state, standalone_mode=standalone_mode
+    )
+    if args is not None:
+        start_kwargs["args"] = args
+
     try:
-        if args is None:
-            start(auto_envvar_prefix="METAFLOW", obj=state)
-        else:
-            try:
-                start.main(args=args, obj=state, auto_envvar_prefix="METAFLOW")
-            except SystemExit as e:
-                return e.code
+        start(**start_kwargs)
     except MetaflowException as x:
         if handle_exceptions:
             print_metaflow_exception(x)

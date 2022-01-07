@@ -1,4 +1,5 @@
 import atexit
+import copy
 import json
 import os
 import select
@@ -16,19 +17,20 @@ from metaflow.metaflow_config import (
     DEFAULT_METADATA,
     BATCH_METADATA_SERVICE_HEADERS,
     BATCH_EMIT_TAGS,
+    DATASTORE_CARD_S3ROOT,
 )
 from metaflow.mflog.mflog import refine, set_should_persist
 from metaflow.mflog import (
     export_mflog_env_vars,
-    bash_capture_logs,
-    update_delay,
+    capture_output_to_mflog,
+    tail_logs,
     BASH_SAVE_LOGS,
 )
 
 from .batch_client import BatchClient
 
-# Redirect structured logs to /logs/
-LOGS_DIR = "/logs"
+# Redirect structured logs to $PWD/.logs/
+LOGS_DIR = "$PWD/.logs"
 STDOUT_FILE = "mflog_stdout"
 STDERR_FILE = "mflog_stderr"
 STDOUT_PATH = os.path.join(LOGS_DIR, STDOUT_FILE)
@@ -59,8 +61,12 @@ class Batch(object):
         )
         init_cmds = environment.get_package_commands(code_package_url)
         init_expr = " && ".join(init_cmds)
-        step_expr = bash_capture_logs(
-            " && ".join(environment.bootstrap_commands(step_name) + step_cmds)
+        step_expr = " && ".join(
+            [
+                capture_output_to_mflog(a)
+                for a in (environment.bootstrap_commands(step_name))
+            ]
+            + step_cmds
         )
 
         # construct an entry point that
@@ -71,7 +77,8 @@ class Batch(object):
         # the `true` command is to make sure that the generated command
         # plays well with docker containers which have entrypoint set as
         # eval $@
-        cmd_str = "true && mkdir -p /logs && %s && %s && %s; " % (
+        cmd_str = "true && mkdir -p %s && %s && %s && %s; " % (
+            LOGS_DIR,
             mflog_expr,
             init_expr,
             step_expr,
@@ -174,6 +181,7 @@ class Batch(object):
         env={},
         attrs={},
         host_volumes=None,
+        num_parallel=1,
     ):
         job_name = self._job_name(
             attrs.get("metaflow.user"),
@@ -204,6 +212,7 @@ class Batch(object):
                 max_swap,
                 swappiness,
                 host_volumes=host_volumes,
+                num_parallel=num_parallel,
             )
             .cpu(cpu)
             .gpu(gpu)
@@ -212,6 +221,7 @@ class Batch(object):
             .max_swap(max_swap)
             .swappiness(swappiness)
             .timeout_in_secs(run_time_limit)
+            .task_id(attrs.get("metaflow.task_id"))
             .environment_variable("AWS_DEFAULT_REGION", self._client.region())
             .environment_variable("METAFLOW_CODE_SHA", code_package_sha)
             .environment_variable("METAFLOW_CODE_URL", code_package_url)
@@ -225,6 +235,8 @@ class Batch(object):
             .environment_variable("METAFLOW_DATATOOLS_S3ROOT", DATATOOLS_S3ROOT)
             .environment_variable("METAFLOW_DEFAULT_DATASTORE", "s3")
             .environment_variable("METAFLOW_DEFAULT_METADATA", DEFAULT_METADATA)
+            .environment_variable("METAFLOW_CARD_S3ROOT", DATASTORE_CARD_S3ROOT)
+            .environment_variable("METAFLOW_RUNTIME_ENVIRONMENT", "aws-batch")
         )
         # Skip setting METAFLOW_DATASTORE_SYSROOT_LOCAL because metadata sync between the local user
         # instance and the remote AWS Batch instance assumes metadata is stored in DATASTORE_LOCAL_DIR
@@ -271,6 +283,7 @@ class Batch(object):
         max_swap=None,
         swappiness=None,
         host_volumes=None,
+        num_parallel=1,
         env={},
         attrs={},
     ):
@@ -283,7 +296,7 @@ class Batch(object):
                 )
         job = self.create_job(
             step_name,
-            step_cli,
+            capture_output_to_mflog(step_cli),
             task_spec,
             code_package_sha,
             code_package_url,
@@ -302,11 +315,13 @@ class Batch(object):
             env=env,
             attrs=attrs,
             host_volumes=host_volumes,
+            num_parallel=num_parallel,
         )
+        self.num_parallel = num_parallel
         self.job = job.execute()
 
     def wait(self, stdout_location, stderr_location, echo=None):
-        def wait_for_launch(job):
+        def wait_for_launch(job, child_jobs):
             status = job.status
             echo(
                 "Task is starting (status %s)..." % status,
@@ -316,9 +331,15 @@ class Batch(object):
             t = time.time()
             while True:
                 if status != job.status or (time.time() - t) > 30:
+                    if not child_jobs:
+                        child_statuses = ""
+                    else:
+                        child_statuses = " (child nodes: [{}])".format(
+                            ", ".join([child_job.status for child_job in child_jobs])
+                        )
                     status = job.status
                     echo(
-                        "Task is starting (status %s)..." % status,
+                        "Task is starting (status %s)... %s" % (status, child_statuses),
                         "stderr",
                         batch_id=job.id,
                     )
@@ -328,63 +349,31 @@ class Batch(object):
                 select.poll().poll(200)
 
         prefix = b"[%s] " % util.to_bytes(self.job.id)
-
-        def _print_available(tail, stream, should_persist=False):
-            # print the latest batch of lines from S3Tail
-            try:
-                for line in tail:
-                    if should_persist:
-                        line = set_should_persist(line)
-                    else:
-                        line = refine(line, prefix=prefix)
-                    echo(line.strip().decode("utf-8", errors="replace"), stream)
-            except Exception as ex:
-                echo(
-                    "[ temporary error in fetching logs: %s ]" % ex,
-                    "stderr",
-                    batch_id=self.job.id,
-                )
-
         stdout_tail = S3Tail(stdout_location)
         stderr_tail = S3Tail(stderr_location)
 
+        child_jobs = []
+        if self.num_parallel > 1:
+            for node in range(1, self.num_parallel):
+                child_job = copy.copy(self.job)
+                child_job._id = child_job._id + "#{}".format(node)
+                child_jobs.append(child_job)
+
         # 1) Loop until the job has started
-        wait_for_launch(self.job)
+        wait_for_launch(self.job, child_jobs)
 
-        # 2) Loop until the job has finished
-        start_time = time.time()
-        is_running = True
-        next_log_update = start_time
-        log_update_delay = 1
+        # 2) Tail logs until the job has finished
+        tail_logs(
+            prefix=prefix,
+            stdout_tail=stdout_tail,
+            stderr_tail=stderr_tail,
+            echo=echo,
+            has_log_updates=lambda: self.job.is_running,
+        )
 
-        while is_running:
-            if time.time() > next_log_update:
-                _print_available(stdout_tail, "stdout")
-                _print_available(stderr_tail, "stderr")
-                now = time.time()
-                log_update_delay = update_delay(now - start_time)
-                next_log_update = now + log_update_delay
-                is_running = self.job.is_running
-
-            # This sleep should never delay log updates. On the other hand,
-            # we should exit this loop when the task has finished without
-            # a long delay, regardless of the log tailing schedule
-            d = min(log_update_delay, 5.0)
-            select.poll().poll(d * 1000)
-
-        # 3) Fetch remaining logs
-        #
-        # It is possible that we exit the loop above before all logs have been
-        # shown.
-        #
-        # TODO if we notice AWS Batch failing to upload logs to S3, we can add a
-        # HEAD request here to ensure that the file exists prior to calling
-        # S3Tail and note the user about truncated logs if it doesn't
-        _print_available(stdout_tail, "stdout")
-        _print_available(stderr_tail, "stderr")
         # In case of hard crashes (OOM), the final save_logs won't happen.
-        # We fetch the remaining logs from AWS CloudWatch and persist them to
-        # Amazon S3.
+        # We can fetch the remaining logs from AWS CloudWatch and persist them
+        # to Amazon S3.
 
         if self.job.is_crashed:
             msg = next(

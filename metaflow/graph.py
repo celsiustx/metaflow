@@ -47,6 +47,7 @@ class DAGNode(object):
         self.func_lineno = func_ast.lineno
         self.decorators = decos
         self.doc = deindent_docstring(doc)
+        self.parallel_step = any(getattr(deco, "IS_PARALLEL", False) for deco in decos)
 
         # these attributes are populated by _parse
         self.tail_next_lineno = 0
@@ -57,13 +58,13 @@ class DAGNode(object):
         self.num_args = 0
         self.condition = None
         self.foreach_param = None
+        self.parallel_foreach = False
         self._parse(func_ast)
 
         # these attributes are populated by _traverse_graph
         self.in_funcs = set()
         self.split_parents = []
         self.matching_join = None
-
         # these attributes are populated by _postprocess
         self.is_inside_foreach = False
 
@@ -79,8 +80,9 @@ class DAGNode(object):
         if self.name == "end":
             # TYPE: end
             self.type = "end"
+            return
 
-        # ensure that the tail an expression
+        # ensure that the tail is an expression
         if not isinstance(tail, ast.Expr):
             return
 
@@ -93,14 +95,21 @@ class DAGNode(object):
             self.invalid_tail_next = True
             self.tail_next_lineno = tail.lineno
             self.out_funcs = [e.attr for e in tail.value.args]
-            keywords = dict((k.arg, k.value.s) for k in tail.value.keywords)
 
+            keywords = dict(
+                (k.arg, getattr(k.value, "s", None)) for k in tail.value.keywords
+            )
             if len(keywords) == 1:
                 if "foreach" in keywords:
                     # TYPE: foreach
                     self.type = "foreach"
                     if len(self.out_funcs) == 1:
                         self.foreach_param = keywords["foreach"]
+                        self.invalid_tail_next = False
+                elif "num_parallel" in keywords:
+                    self.type = "foreach"
+                    self.parallel_foreach = True
+                    if len(self.out_funcs) == 1:
                         self.invalid_tail_next = False
                 elif "condition" in keywords:
                     # TYPE: split-or
@@ -120,7 +129,6 @@ class DAGNode(object):
                     else:
                         self.type = "linear"
                     self.invalid_tail_next = False
-
         except AttributeError:
             return
 
@@ -137,6 +145,8 @@ class DAGNode(object):
     invalid_tail_next={0.invalid_tail_next}
     condition={0.condition}
     foreach_param={0.foreach_param}
+    parallel_step={0.parallel_step}
+    parallel_foreach={0.parallel_foreach}
     -> {out}""".format(
             self,
             matching_join=self.matching_join and "[%s]" % self.matching_join,
@@ -163,15 +173,16 @@ class StepVisitor(ast.NodeVisitor):
 
 class FlowGraph(object):
     def __init__(self, flow):
-        self.name = flow.__name__
+        self.name = flow.name
         self.nodes = self._create_nodes(flow)
         self.doc = deindent_docstring(flow.__doc__)
         self._traverse_graph()
         self._postprocess()
 
     def _create_nodes(self, flow):
-        module = __import__(flow.__module__)
-        tree = ast.parse(inspect.getsource(module)).body
+        with open(flow.file, "r") as f:
+            source = f.read()
+        tree = ast.parse(source).body
         root = [n for n in tree if isinstance(n, ast.ClassDef) and n.name == self.name][
             0
         ]
@@ -192,7 +203,6 @@ class FlowGraph(object):
 
     def _traverse_graph(self):
         def traverse(node, seen, split_parents):
-
             if node.type in ("split-or", "split-and", "foreach"):
                 node.split_parents = split_parents
                 split_parents = split_parents + [node.name]

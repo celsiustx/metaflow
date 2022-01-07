@@ -3,6 +3,8 @@ import sys
 import os
 import time
 
+from types import MethodType, FunctionType
+
 from .metaflow_config import MAX_ATTEMPTS
 from .metadata import MetaDatum
 from .datastore import Inputs, TaskDataStoreSet
@@ -53,6 +55,10 @@ class MetaflowTask(object):
             step_function(input_obj)
 
     def _init_parameters(self, parameter_ds, passdown=True):
+        def set_cls_var(_, __):
+            raise AttributeError("Flow level attributes are not modifiable")
+
+        cls = self.flow.__class__
         # overwrite Parameters in the flow object
         vars = []
         for var, param in self.flow._get_parameters():
@@ -60,7 +66,7 @@ class MetaflowTask(object):
             # note x=x binds the current value of x to the closure
             def property_setter(
                 _,
-                cls=self.flow.__class__,
+                cls=cls,
                 param=param,
                 var=var,
                 parameter_ds=parameter_ds,
@@ -69,11 +75,26 @@ class MetaflowTask(object):
                 setattr(cls, var, property(fget=lambda _, val=v: val))
                 return v
 
-            setattr(self.flow.__class__, var, property(fget=property_setter))
+            setattr(cls, var, property(fget=property_setter))
             vars.append(var)
+
+        param_only_vars = list(vars)
+        # make class-level values read-only to be more consistent across steps in a flow
+        # they are also only persisted once and so we similarly pass them down if
+        # required
+        for var in dir(cls):
+            if var[0] == "_" or var in cls._NON_PARAMETERS or var in vars:
+                continue
+            val = getattr(cls, var)
+            # Exclude methods, properties and other classes
+            if isinstance(val, (MethodType, FunctionType, property, type)):
+                continue
+            setattr(cls, var, property(fget=lambda _, val=val: val, fset=set_cls_var))
+            vars.append(var)
+
         if passdown:
             self.flow._datastore.passdown_partial(parameter_ds, vars)
-        return vars
+        return param_only_vars
 
     def _init_data(self, run_id, join_type, input_paths):
         # We prefer to use the parallelized version to initialize datastores
@@ -214,7 +235,7 @@ class MetaflowTask(object):
         x._set_datastore(datastore)
         return x
 
-    def clone_only(self, step_name, run_id, task_id, clone_origin_task):
+    def clone_only(self, step_name, run_id, task_id, clone_origin_task, retry_count):
         if not clone_origin_task:
             raise MetaflowInternalError(
                 "task.clone_only needs a valid " "clone_origin_task value."
@@ -231,8 +252,27 @@ class MetaflowTask(object):
         origin = self.flow_datastore.get_task_datastore(
             origin_run_id, origin_step_name, origin_task_id
         )
-
+        metadata_tags = ["attempt_id:{0}".format(retry_count)]
         output.clone(origin)
+        self.metadata.register_metadata(
+            run_id,
+            step_name,
+            task_id,
+            [
+                MetaDatum(
+                    field="origin-task-id",
+                    value=str(origin_task_id),
+                    type="origin-task-id",
+                    tags=metadata_tags,
+                ),
+                MetaDatum(
+                    field="origin-run-id",
+                    value=str(origin_run_id),
+                    type="origin-run-id",
+                    tags=metadata_tags,
+                ),
+            ],
+        )
         output.done()
 
     def _finalize_control_task(self):
@@ -345,14 +385,6 @@ class MetaflowTask(object):
         output.init_task()
 
         if input_paths:
-            control_paths = [
-                path
-                for path in input_paths
-                if path.split("/")[-1].startswith("control-")
-            ]
-            if control_paths:
-                [control_path] = control_paths
-                input_paths.remove(control_path)
             # 2. initialize input datastores
             inputs = self._init_data(run_id, join_type, input_paths)
 
