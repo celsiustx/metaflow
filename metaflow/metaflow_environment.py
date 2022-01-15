@@ -82,7 +82,7 @@ class MetaflowEnvironment(object):
         cmds = [
             BASH_MFLOG,
             "mflog 'Setting up task environment.'",
-            "%s -m pip install awscli click requests boto3 -qqq" % self._python(),
+            "%s -m pip install awscli click requests 'boto3<1.20.0' -qqq" % self._python(),
             "mkdir -p metaflow",
             "cd metaflow",
             "mkdir -p .metaflow",  # mute local datastore creation log
