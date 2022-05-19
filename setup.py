@@ -1,6 +1,15 @@
+from os.path import dirname, join
 from setuptools import setup, find_packages
 
 version = "2.5.1"
+
+dir = dirname(__file__)
+
+with open(join(dir, "requirements.txt"), "r") as f:
+    install_requires = [line.rstrip("\n") for line in f.readlines()]
+
+with open(join(dir, "requirements-test.txt"), "r") as f:
+    tests_require = [line.rstrip("\n") for line in f.readlines()]
 
 setup(
     include_package_data=True,
@@ -19,9 +28,7 @@ setup(
         [console_scripts]
         metaflow=metaflow.main_cli:main
       """,
-    install_requires=[
-        "requests",
-        "boto3",
-        "pylint",
-    ],
+    install_requires=install_requires,
+    extras_require={"test": tests_require},
+    tests_require=tests_require,
 )
