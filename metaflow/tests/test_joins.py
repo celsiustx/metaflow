@@ -1,5 +1,13 @@
-from metaflow.tests.flows.branching import OldBranchingFlow
-from metaflow.tests.flows.joins import OldJoinFlow1, OldJoinFlow2, OldForeachSplit
+from metaflow.tests.flows.branching import NewBranchingFlow, OldBranchingFlow
+from metaflow.tests.flows.joins import (
+    NewJoinFlow1,
+    OldJoinFlow1,
+    NewJoinFlow2,
+    OldJoinFlow2,
+    OldForeachSplit,
+    NewForeachSplit,
+)
+
 from metaflow.tests.utils import check_graph, parametrize, run
 
 
@@ -33,7 +41,7 @@ results = [
 ]
 
 
-@parametrize("flow", [ OldJoinFlow1,],)
+@parametrize( "flow", [ OldJoinFlow1, NewJoinFlow1, ], )
 def test_joins1(flow):
     check_graph(flow, graph)
     data = run(flow)
@@ -67,7 +75,7 @@ join_flow2_graph = [
 ]
 
 
-@parametrize("flow", [ OldJoinFlow2, ],)
+@parametrize( "flow", [ OldJoinFlow2, NewJoinFlow2, ], )
 def test_joins2(flow):
     check_graph(flow, join_flow2_graph)
     data = run(flow)
@@ -90,7 +98,13 @@ branching_graph = [
 ]
 
 
-@parametrize( "flow,func_linenos", [ ( OldBranchingFlow, [ 7, 11, 16, 21, 26, 35, ], ), ],)
+@parametrize(
+    "flow,func_linenos",
+    [
+        ( OldBranchingFlow, [  9, 13, 18, 23, 28, 37, ], ),
+        ( NewBranchingFlow, [ 42, 43, 47, 51, 55, 62, ], ),
+    ],
+)
 def test_branching_flow(flow, func_linenos):
     graph = [
         dict(**obj, func_lineno=func_lineno)
@@ -112,7 +126,7 @@ foreach_split_graph = [
 ]
 
 
-@parametrize( "flow", [ OldForeachSplit, ], )
+@parametrize("flow", [ OldForeachSplit, NewForeachSplit, ], )
 def test_foreach_splitand(flow):
     check_graph(flow, foreach_split_graph)
 
