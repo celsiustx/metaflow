@@ -93,7 +93,6 @@ def export_mflog_env_vars(
     stdout_path=None,
     stderr_path=None,
 ):
-
     pathspec = "/".join((flow_name, str(run_id), step_name, str(task_id)))
     env_vars = {
         "PYTHONUNBUFFERED": "x",
