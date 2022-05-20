@@ -17,61 +17,14 @@ def flow_path(name):
     return join(test_flows_dir, name)
 
 
+# fmt: off
 flow12_graph = [
-    {
-        "name": "start",
-        "type": "linear",
-        "in_funcs": [],
-        "out_funcs": ["aaa"],
-        "split_parents": [],
-        "file": flow_path("inherited_flows.py"),
-        "func_lineno": 8,
-    },
-    {
-        "name": "aaa",
-        "type": "linear",
-        "in_funcs": ["start"],
-        "out_funcs": ["bbb"],
-        "split_parents": [],
-        "file": flow_path("new_linear_flows.py"),
-        "func_lineno": 6,
-    },
-    {
-        "name": "bbb",
-        "type": "linear",
-        "in_funcs": ["aaa"],
-        "out_funcs": ["ccc"],
-        "split_parents": [],
-        "file": flow_path("new_linear_flows.py"),
-        "func_lineno": 10,
-    },
-    {
-        "name": "ccc",
-        "type": "linear",
-        "in_funcs": ["bbb"],
-        "out_funcs": ["ddd"],
-        "split_parents": [],
-        "file": flow_path("new_linear_flows.py"),
-        "func_lineno": 17,
-    },
-    {
-        "name": "ddd",
-        "type": "linear",
-        "in_funcs": ["ccc"],
-        "out_funcs": ["end"],
-        "split_parents": [],
-        "file": flow_path("new_linear_flows.py"),
-        "func_lineno": 21,
-    },
-    {
-        "name": "end",
-        "type": "end",
-        "in_funcs": ["ddd"],
-        "out_funcs": [],
-        "split_parents": [],
-        "file": flow_path("inherited_flows.py"),
-        "func_lineno": 11,
-    },
+    { "name": "start", "type":  "start", "in_funcs": [       ], "out_funcs": ["aaa"], "split_parents": [], "file": flow_path( "inherited_flows.py"), "func_lineno":  8, },
+    { "name":   "aaa", "type": "linear", "in_funcs": ["start"], "out_funcs": ["bbb"], "split_parents": [], "file": flow_path("new_linear_flows.py"), "func_lineno":  6, },
+    { "name":   "bbb", "type": "linear", "in_funcs": [  "aaa"], "out_funcs": ["ccc"], "split_parents": [], "file": flow_path("new_linear_flows.py"), "func_lineno": 10, },
+    { "name":   "ccc", "type": "linear", "in_funcs": [  "bbb"], "out_funcs": ["ddd"], "split_parents": [], "file": flow_path("new_linear_flows.py"), "func_lineno": 17, },
+    { "name":   "ddd", "type": "linear", "in_funcs": [  "ccc"], "out_funcs": ["end"], "split_parents": [], "file": flow_path("new_linear_flows.py"), "func_lineno": 21, },
+    { "name":   "end", "type":    "end", "in_funcs": [  "ddd"], "out_funcs": [     ], "split_parents": [], "file": flow_path( "inherited_flows.py"), "func_lineno": 11, },
 ]
 
 
@@ -87,79 +40,16 @@ def test_flow12():
 
 
 flow123_graph = [
-    {
-        "name": "start",
-        "type": "linear",
-        "in_funcs": [],
-        "out_funcs": ["aaa"],
-        "split_parents": [],
-        "file": flow_path("inherited_flows.py"),
-        "func_lineno": 12,
-    },
-    {
-        "name": "aaa",
-        "type": "linear",
-        "in_funcs": ["start"],
-        "out_funcs": ["bbb"],
-        "split_parents": [],
-        "file": flow_path("new_linear_flows.py"),
-        "func_lineno": 6,
-    },
-    {
-        "name": "bbb",
-        "type": "linear",
-        "in_funcs": ["aaa"],
-        "out_funcs": ["ccc"],
-        "split_parents": [],
-        "file": flow_path("new_linear_flows.py"),
-        "func_lineno": 10,
-    },
-    {
-        "name": "ccc",
-        "type": "linear",
-        "in_funcs": ["bbb"],
-        "out_funcs": ["ddd"],
-        "split_parents": [],
-        "file": flow_path("new_linear_flows.py"),
-        "func_lineno": 17,
-    },
-    {
-        "name": "ddd",
-        "type": "linear",
-        "in_funcs": ["ccc"],
-        "out_funcs": ["eee"],
-        "split_parents": [],
-        "file": flow_path("new_linear_flows.py"),
-        "func_lineno": 21,
-    },
-    {
-        "name": "eee",
-        "type": "linear",
-        "in_funcs": ["ddd"],
-        "out_funcs": ["fff"],
-        "split_parents": [],
-        "file": flow_path("new_linear_flows.py"),
-        "func_lineno": 28,
-    },
-    {
-        "name": "fff",
-        "type": "linear",
-        "in_funcs": ["eee"],
-        "out_funcs": ["end"],
-        "split_parents": [],
-        "file": flow_path("new_linear_flows.py"),
-        "func_lineno": 32,
-    },
-    {
-        "name": "end",
-        "type": "end",
-        "in_funcs": ["fff"],
-        "out_funcs": [],
-        "split_parents": [],
-        "file": flow_path("inherited_flows.py"),
-        "func_lineno": 15,
-    },
+    { "name": "start", "type":  "start", "in_funcs": [       ], "out_funcs": ["aaa"], "split_parents": [], "file": flow_path( "inherited_flows.py"), "func_lineno": 12, },
+    { "name":   "aaa", "type": "linear", "in_funcs": ["start"], "out_funcs": ["bbb"], "split_parents": [], "file": flow_path("new_linear_flows.py"), "func_lineno":  6, },
+    { "name":   "bbb", "type": "linear", "in_funcs": [  "aaa"], "out_funcs": ["ccc"], "split_parents": [], "file": flow_path("new_linear_flows.py"), "func_lineno": 10, },
+    { "name":   "ccc", "type": "linear", "in_funcs": [  "bbb"], "out_funcs": ["ddd"], "split_parents": [], "file": flow_path("new_linear_flows.py"), "func_lineno": 17, },
+    { "name":   "ddd", "type": "linear", "in_funcs": [  "ccc"], "out_funcs": ["eee"], "split_parents": [], "file": flow_path("new_linear_flows.py"), "func_lineno": 21, },
+    { "name":   "eee", "type": "linear", "in_funcs": [  "ddd"], "out_funcs": ["fff"], "split_parents": [], "file": flow_path("new_linear_flows.py"), "func_lineno": 28, },
+    { "name":   "fff", "type": "linear", "in_funcs": [  "eee"], "out_funcs": ["end"], "split_parents": [], "file": flow_path("new_linear_flows.py"), "func_lineno": 32, },
+    { "name":   "end", "type":    "end", "in_funcs": [  "fff"], "out_funcs": [     ], "split_parents": [], "file": flow_path( "inherited_flows.py"), "func_lineno": 15, },
 ]
+# fmt: on
 
 
 def test_flow123():

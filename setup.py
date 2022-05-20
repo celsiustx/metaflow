@@ -1,7 +1,7 @@
 from os.path import dirname, join
 from setuptools import setup, find_packages
 
-version = "2.4.7"
+version = "2.5.1"
 
 dir = dirname(__file__)
 

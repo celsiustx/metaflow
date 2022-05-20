@@ -1,4 +1,4 @@
-from click.exceptions import NoSuchOption
+from metaflow._vendor.click.exceptions import NoSuchOption
 from pytest import raises
 
 from metaflow.tests.flows import (

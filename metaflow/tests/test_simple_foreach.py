@@ -18,7 +18,7 @@ class OldSumSquares(FlowSpec):
 
     @step
     def square(self):
-        self.num2 = self.input ** 2
+        self.num2 = self.input**2
         self.next(self.sum)
 
     @step
@@ -40,7 +40,7 @@ class NewSumSquares(ma.FlowSpec):
 
     @foreach("nums")
     def square(self, num):
-        self.num2 = num ** 2
+        self.num2 = num**2
 
     @join
     def sum(self, inputs):

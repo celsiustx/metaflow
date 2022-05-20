@@ -191,7 +191,7 @@ class NewJoinFlow2(ma.FlowSpec):
         self.odds = [r for r in self.results if r["n"] % 2 == 1]
 
 
-class OldForeachSplitAnd(FlowSpec):
+class OldForeachSplit(FlowSpec):
     @step
     def start(self):
         self.items = [1, 2, 3, 4]
@@ -221,7 +221,7 @@ class OldForeachSplitAnd(FlowSpec):
         assert not hasattr(self, "n4")
         self.merge_artifacts(inputs)
         n = self.n
-        assert (n, self.n2, self.n3, self.n4) == (n, n ** 2, n ** 3, n ** 4)
+        assert (n, self.n2, self.n3, self.n4) == (n, n**2, n**3, n**4)
         self.n5 = self.n2 * self.n3
         self.next(self.join_foreach)
 
@@ -251,7 +251,7 @@ class OldForeachSplitAnd(FlowSpec):
         )
 
 
-class NewForeachSplitAnd(ma.FlowSpec):
+class NewForeachSplit(ma.FlowSpec):
     @step
     def start(self):
         self.items = [1, 2, 3, 4]
@@ -276,7 +276,7 @@ class NewForeachSplitAnd(ma.FlowSpec):
         assert not hasattr(self, "n4")
         self.merge_artifacts(inputs)
         n = self.n
-        assert (n, self.n2, self.n3, self.n4) == (n, n ** 2, n ** 3, n ** 4)
+        assert (n, self.n2, self.n3, self.n4) == (n, n**2, n**3, n**4)
         self.n5 = self.n2 * self.n3
 
     @join

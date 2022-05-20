@@ -190,7 +190,7 @@ class FlowSpecMeta(mf.FlowSpecMeta):
                 if pk == "start":
                     assert pv.out_funcs == [ck]
                 elif pv.out_funcs:
-                    pv.type = "split-and"
+                    pv.type = "split"
                     pv.out_funcs.append(ck)
                 else:
                     if not pv.type:
@@ -299,7 +299,7 @@ class FlowSpecMeta(mf.FlowSpecMeta):
                 [nxt] = node.out_funcs
                 field = node.foreach_param
                 next_fn = lambda self: self.next(getattr(self, nxt), foreach=field)
-            elif node.type == "split-and":
+            elif node.type == "split":
                 out_funcs = node.out_funcs
                 assert len(out_funcs) > 1
                 next_fn = lambda self: self.next(

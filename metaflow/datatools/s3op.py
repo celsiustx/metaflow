@@ -22,11 +22,11 @@ except:
     from urllib.parse import urlparse
     from queue import Full as QueueFull
 
-import click
-
 # s3op can be launched as a stand-alone script. We must set
 # PYTHONPATH for the parent Metaflow explicitly.
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "../../")))
+
+from metaflow._vendor import click
 
 # we use Metaflow's parallel_imap_unordered instead of
 # multiprocessing.Pool because https://bugs.python.org/issue31886
@@ -78,7 +78,7 @@ ERROR_LOCAL_FILE_NOT_FOUND = 10
 
 
 def format_triplet(prefix, url="", local=""):
-    return u" ".join(url_quote(x).decode("utf-8") for x in (prefix, url, local))
+    return " ".join(url_quote(x).decode("utf-8") for x in (prefix, url, local))
 
 
 # I can't understand what's the right way to deal
@@ -306,10 +306,10 @@ def process_urls(mode, urls, verbose, num_workers):
 
 
 def with_unit(x):
-    if x > 1024 ** 3:
-        return "%.1fGB" % (x / 1024.0 ** 3)
-    elif x > 1024 ** 2:
-        return "%.1fMB" % (x / 1024.0 ** 2)
+    if x > 1024**3:
+        return "%.1fGB" % (x / 1024.0**3)
+    elif x > 1024**2:
+        return "%.1fMB" % (x / 1024.0**2)
     elif x > 1024:
         return "%.1fKB" % (x / 1024.0)
     else:
@@ -476,8 +476,8 @@ def generate_local_path(url, suffix=None):
     fname = quoted.split(b"/")[-1].replace(b".", b"_").replace(b"-", b"_")
     sha = sha1(quoted).hexdigest()
     if suffix:
-        return u"-".join((sha, fname.decode("utf-8"), suffix))
-    return u"-".join((sha, fname.decode("utf-8")))
+        return "-".join((sha, fname.decode("utf-8"), suffix))
+    return "-".join((sha, fname.decode("utf-8")))
 
 
 def parallel_op(op, lst, num_workers):

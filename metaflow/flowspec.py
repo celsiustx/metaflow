@@ -1,11 +1,12 @@
 from contextlib import contextmanager
 from importlib import import_module
-from itertools import islice
 import os
 from os import getcwd, listdir
 from os.path import exists
 import sys
 import traceback
+
+from itertools import islice
 from types import FunctionType, MethodType
 
 import metaflow
@@ -291,7 +292,11 @@ class FlowSpec(object, metaclass=FlowSpecMeta):
             fname = fname[:-1]
         return os.path.basename(fname)
 
-    def _set_constants(self, kwargs):
+    def _set_constants(self, graph, kwargs):
+        from metaflow.decorators import (
+            flow_decorators,
+        )  # To prevent circular dependency
+
         # Persist values for parameters and other constants (class level variables)
         # only once. This method is called before persist_constants is called to
         # persist all values set using setattr
@@ -308,6 +313,7 @@ class FlowSpec(object, metaclass=FlowSpecMeta):
         seen.clear()
         self._success = True
 
+        parameters_info = []
         for var, param in self._get_parameters():
             seen.add(var)
             val = kwargs[param.name.replace("-", "_").lower()]
@@ -317,17 +323,42 @@ class FlowSpec(object, metaclass=FlowSpecMeta):
                 val = val()
             val = val.split(param.separator) if val and param.separator else val
             setattr(self, var, val)
+            parameters_info.append({"name": var, "type": param.__class__.__name__})
 
         # Do the same for class variables which will be forced constant as modifications
         # to them don't propagate well since we create a new process for each step and
         # re-read the flow file
+        constants_info = []
         for var in dir(self.__class__):
             if var[0] == "_" or var in self._NON_PARAMETERS or var in seen:
                 continue
             val = getattr(self.__class__, var)
             if isinstance(val, (MethodType, FunctionType, property, type)):
                 continue
+            constants_info.append({"name": var, "type": type(val).__name__})
             setattr(self, var, val)
+
+        # We store the DAG information as an artifact called _graph_info
+        steps_info, graph_structure = graph.output_steps()
+
+        graph_info = {
+            "file": os.path.basename(os.path.abspath(sys.argv[0])),
+            "parameters": parameters_info,
+            "constants": constants_info,
+            "steps": steps_info,
+            "graph_structure": graph_structure,
+            "doc": graph.doc,
+            "decorators": [
+                {
+                    "name": deco.name,
+                    "attributes": deco.attributes,
+                    "statically_defined": deco.statically_defined,
+                }
+                for deco in flow_decorators()
+                if not deco.name.startswith("_")
+            ],
+        }
+        self._graph_info = graph_info
 
     @classmethod
     def _get_parameters(cls):
@@ -661,7 +692,6 @@ class FlowSpec(object, metaclass=FlowSpecMeta):
 
         foreach = kwargs.pop("foreach", None)
         num_parallel = kwargs.pop("num_parallel", None)
-        condition = kwargs.pop("condition", None)
         if kwargs:
             kw = next(iter(kwargs))
             msg = (
@@ -705,14 +735,6 @@ class FlowSpec(object, metaclass=FlowSpecMeta):
                 )
             foreach = "_parallel_ubf_iter"
             self._parallel_ubf_iter = ParallelUBF(num_parallel)
-
-        # check: foreach and condition are mutually exclusive
-        if not (foreach is None or condition is None):
-            msg = (
-                "Step *{step}* has an invalid self.next() transition. "
-                "Specify either 'foreach' or 'condition', not both.".format(step=step)
-            )
-            raise InvalidNextException(msg)
 
         # check: foreach is valid
         if foreach:
@@ -768,25 +790,8 @@ class FlowSpec(object, metaclass=FlowSpecMeta):
 
             self._foreach_var = foreach
 
-        # check: condition is valid
-        if condition:
-            if not isinstance(condition, basestring):
-                msg = (
-                    "Step *{step}* has an invalid self.next() transition. "
-                    "The argument to 'condition' must be a string.".format(step=step)
-                )
-                raise InvalidNextException(msg)
-            if len(dsts) != 2:
-                msg = (
-                    "Step *{step}* has an invalid self.next() transition. "
-                    "Specify two targets for 'condition': The first target "
-                    "is used if the condition evaluates to true, the second "
-                    "otherwise.".format(step=step)
-                )
-                raise InvalidNextException(msg)
-
         # check: non-keyword transitions are valid
-        if foreach is None and condition is None:
+        if foreach is None:
             if len(dsts) < 1:
                 msg = (
                     "Step *{step}* has an invalid self.next() transition. "
@@ -795,7 +800,7 @@ class FlowSpec(object, metaclass=FlowSpecMeta):
                 )
                 raise InvalidNextException(msg)
 
-        self._transition = (funcs, foreach, condition)
+        self._transition = (funcs, foreach)
 
     def __str__(self):
         step_name = getattr(self, "_current_step", None)

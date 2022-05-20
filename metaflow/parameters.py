@@ -2,7 +2,7 @@ from collections import namedtuple
 import json
 from typing import Union
 
-import click
+from metaflow._vendor import click
 
 from .util import get_username, is_stringish
 from .exception import (

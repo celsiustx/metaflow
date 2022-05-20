@@ -26,12 +26,14 @@ class FlowFormatter(object):
         def lines():
             lines, lineno = inspect.getsourcelines(step)
             lines_iter = iter(lines)
+            is_next_line = False
             for line in lines_iter:
                 head = line.lstrip()
-                if head and (head[0] == "@" or head.startswith("def ")):
-                    continue
-                first_line = line
-                break
+                if is_next_line:
+                    first_line = line
+                    break
+                if head.startswith("def "):
+                    is_next_line = True
             indent = len(first_line) - len(first_line.lstrip())
             yield first_line[indent:].rstrip()
             for line in lines_iter:
@@ -148,9 +150,6 @@ class FlowFormatter(object):
 
     def _check_lines(self):
         yield 0, "# -*- coding: utf-8 -*-"
-        yield 0, "from coverage import Coverage"
-        yield 0, "cov = Coverage(data_suffix=True, " "auto_data=True, " "branch=True, " 'omit=["check_flow.py", ' '"test_flow.py", ' '"*/click/*", ' '"*/site-packages/*", ' '"*/core/metaflow_extensions/*", ' '"*/core/metaflow_test/*"])'
-        yield 0, "cov.start()"
         yield 0, "import sys"
         yield 0, "from metaflow_test import assert_equals, new_checker"
         yield 0, "def check_results(flow, checker):"

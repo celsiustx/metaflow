@@ -406,7 +406,7 @@ class NativeRuntime(object):
                 ]
                 join_type = "foreach"
             else:
-                # next step is a split-and
+                # next step is a split
                 # required tasks are all branches joined by the next step
                 required_tasks = [
                     self._finished.get((step, foreach_stack))
@@ -887,7 +887,6 @@ class CLIArgs(object):
         self.entrypoint = list(task.entrypoint)
         self.top_level_options = {
             "quiet": True,
-            "coverage": "coverage" in sys.modules,
             "metadata": self.task.metadata_type,
             "environment": self.task.environment_type,
             "datastore": self.task.datastore_type,

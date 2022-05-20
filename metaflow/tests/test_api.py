@@ -11,19 +11,12 @@ from metaflow.tests.flows import (
 from metaflow.tests.utils import check_graph, flow_path, parametrize, run
 
 
+# fmt: off
 @parametrize(
     "flow,file,name",
     [
-        (
-            LinearFlow,
-            "linear_flow.py",
-            "LinearFlow",
-        ),
-        (
-            NewLinearFlow,
-            "new_linear_flow.py",
-            "NewLinearFlow",
-        ),
+        (    LinearFlow,     "linear_flow.py",    "LinearFlow", ),
+        ( NewLinearFlow, "new_linear_flow.py", "NewLinearFlow", ),
     ],
 )
 def test_flowspec_attrs(flow, file, name):
@@ -35,70 +28,33 @@ def test_flowspec_attrs(flow, file, name):
 
 
 line_no_map = {
-    LinearFlow: [
-        9,
-        13,
-        18,
-        23,
-        29,
-    ],
-    NewLinearFlow: [
-        10,
-        11,
-        15,
-        19,
-        31,
-    ],
+       LinearFlow: [  9, 13, 18, 23, 29, ],
+    NewLinearFlow: [ 10, 11, 15, 19, 31, ],
 }
 
 
 @parametrize(
     "flow,file",
     [
-        (
-            LinearFlow,
-            "linear_flow.py",
-        ),
-        (
-            NewLinearFlow,
-            "new_linear_flow.py",
-        ),
+        (    LinearFlow,     "linear_flow.py", ),
+        ( NewLinearFlow, "new_linear_flow.py", ),
     ],
 )
 def test_api(flow, file):
-    # Add `@step` line numbers (different for each flow) to expected output
+    # Verify graph; note that @step-function line numbers point at the `@step` decorator in Python ≤3.7; in Python ≥3.8,
+    # they point at the function `def` line. When Metaflow's CI adds support for newer Python versions, these expected
+    # line numbers will have to take the Python version into account. See also: https://bugs.python.org/issue33211.
+    # fmt: off
     expected = [
-        {
-            "name": "start",
-            "type": "linear",
-            "in_funcs": [],
-            "out_funcs": ["one"],
-        },
-        {
-            "name": "one",
-            "type": "linear",
-            "in_funcs": ["start"],
-            "out_funcs": ["two"],
-        },
-        {
-            "name": "two",
-            "type": "linear",
-            "in_funcs": ["one"],
-            "out_funcs": ["three"],
-        },
-        {
-            "name": "three",
-            "type": "linear",
-            "in_funcs": ["two"],
-            "out_funcs": ["end"],
-        },
-        {
-            "name": "end",
-            "type": "end",
-            "in_funcs": ["three"],
-            "out_funcs": [],
-        },
+        {'name': 'start', 'type':  'start', 'in_funcs': [       ], 'out_funcs': [  'one'], },
+        {'name':   'one', 'type': 'linear', 'in_funcs': ['start'], 'out_funcs': [  'two'], },
+        {'name':   'two', 'type': 'linear', 'in_funcs': [  'one'], 'out_funcs': ['three'], },
+        {'name': 'three', 'type': 'linear', 'in_funcs': [  'two'], 'out_funcs': [  'end'], },
+        {'name':   'end', 'type':    'end', 'in_funcs': ['three'], 'out_funcs': [       ], },
     ]
+    # fmt: on
+
+    # Add `@step` line numbers (different for each flow) to expected output
     line_nos = line_no_map[flow]
     expected = [
         {
@@ -128,65 +84,24 @@ def test_api(flow, file):
 @parametrize(
     "flow,func_linenos",
     [
-        (
-            ResourcesFlow,
-            [
-                5,
-                6,
-                11,
-                16,
-            ],
-        ),
-        (
-            ResourcesFlow2,
-            [
-                17,
-                6,
-                11,
-                19,
-            ],
-        ),
+        ( ResourcesFlow , [  5, 6, 11, 16, ], ),
+        ( ResourcesFlow2, [ 17, 6, 11, 19, ], ),
     ],
     ids=["ResourcesFlow", "ResourcesFlow2"],
 )
 def test_resources_flow(flow, func_linenos):
     file = flow_path("resources_flow.py")
     expected = [
-        {
-            "name": "start",
-            "type": "linear",
-            "in_funcs": [],
-            "out_funcs": ["one"],
-            "file": file,
-            "decorators": [],
-        },
-        {
-            "name": "one",
-            "type": "linear",
-            "in_funcs": ["start"],
-            "out_funcs": ["two"],
-            "file": file,
-            "decorators": [ResourcesDecorator(dict(memory=1_000))],
-        },
-        {
-            "name": "two",
-            "type": "linear",
-            "in_funcs": ["one"],
-            "out_funcs": ["end"],
-            "file": file,
-            "decorators": [ResourcesDecorator(dict(memory=2_000))],
-        },
-        {
-            "name": "end",
-            "type": "end",
-            "in_funcs": ["two"],
-            "out_funcs": [],
-            "file": file,
-            "decorators": [],
-        },
+        { "name": "start", "type":  "start", "in_funcs": [       ], "out_funcs": ["one"], "file": file, "decorators": [                                      ], },
+        { "name":   "one", "type": "linear", "in_funcs": ["start"], "out_funcs": ["two"], "file": file, "decorators": [ResourcesDecorator(dict(memory=1_000))], },
+        { "name":   "two", "type": "linear", "in_funcs": [  "one"], "out_funcs": ["end"], "file": file, "decorators": [ResourcesDecorator(dict(memory=2_000))], },
+        { "name":   "end", "type":    "end", "in_funcs": [  "two"], "out_funcs": [     ], "file": file, "decorators": [                                      ], },
     ]
     expected = [
         dict(**o, func_lineno=func_lineno)
         for o, func_lineno in zip(expected, func_linenos)
     ]
     check_graph(flow, expected)
+
+
+# fmt: on
