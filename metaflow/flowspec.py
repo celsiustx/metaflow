@@ -1,4 +1,4 @@
-import inspect
+from importlib import import_module
 import os
 import sys
 import traceback
@@ -15,6 +15,7 @@ from .exception import (
 )
 from .graph import FlowGraph
 from .unbounded_foreach import UnboundedForeachInput
+
 
 # For Python 3 compatibility
 try:
@@ -45,7 +46,26 @@ class ParallelUBF(UnboundedForeachInput):
         return item or 0  # item is None for the control task, but it is also split 0
 
 
-class FlowSpec(object):
+class FlowSpecMeta(type):
+    def __new__(cls, name, bases, dct):
+        cls = super().__new__(cls, name, bases, dct)
+
+        mod_name = cls.__module__
+        module = import_module(mod_name)
+        file = module.__file__
+
+        # Flows are identified and run by a "path spec" comprised of their file and class name
+        cls.file = file
+        cls.name = name
+        cls.path_spec = "%s:%s" % (cls.file, cls.name)
+
+        cls._graph = FlowGraph(cls)
+        cls._steps = [getattr(cls, node.name) for node in cls._graph]
+
+        return cls
+
+
+class FlowSpec(object, metaclass=FlowSpecMeta):
     """
     Main class from which all Flows should inherit.
 
@@ -57,7 +77,7 @@ class FlowSpec(object):
     """
 
     # Attributes that are not saved in the datastore when checkpointing.
-    # Name starting with '__', methods, functions and Parameters do not need
+    # Names starting with '__', methods, functions and Parameters do not need
     # to be listed.
     _EPHEMERAL = {
         "_EPHEMERAL",
@@ -69,6 +89,9 @@ class FlowSpec(object):
         "_steps",
         "index",
         "input",
+        "name",
+        "file",
+        "path_spec",
     }
     # When checking for parameters, we look at dir(self) but we want to exclude
     # attributes that are definitely not parameters and may be expensive to
@@ -78,7 +101,7 @@ class FlowSpec(object):
 
     _flow_decorators = {}
 
-    def __init__(self, use_cli=True):
+    def __init__(self, use_cli=True, args=None, entrypoint=None, standalone_mode=True):
         """
         Construct a FlowSpec
 
@@ -88,21 +111,31 @@ class FlowSpec(object):
             Set to True if the flow is invoked from __main__ or the command line
         """
 
-        self.name = self.__class__.__name__
+        cls = self.__class__
 
         self._datastore = None
         self._transition = None
         self._cached_input = {}
 
-        self._graph = FlowGraph(self.__class__)
-        self._steps = [getattr(self, node.name) for node in self._graph]
-
         if use_cli:
-            # we import cli here to make sure custom parameters in
-            # args.py get fully evaluated before cli.py is imported.
+            # Use entrypoint that selects this flow via `main_cli`
+            if not entrypoint:
+                entrypoint = [
+                    sys.executable,
+                    self.file,
+                ]
+
+            # Import cli here (as opposed to earlier, or at the file level) to ensure custom Parameters
+            # are registered before metaflow.cli is initialized
             from . import cli
 
-            cli.main(self)
+            cli.main(
+                self,
+                args=args,
+                entrypoint=entrypoint,
+                handle_exceptions=standalone_mode,
+                standalone_mode=standalone_mode,
+            )
 
     @property
     def script_name(self):
@@ -114,7 +147,7 @@ class FlowSpec(object):
         str
             A string containing the name of the script
         """
-        fname = inspect.getfile(self.__class__)
+        fname = self.file
         if fname.endswith(".pyc"):
             fname = fname[:-1]
         return os.path.basename(fname)
@@ -187,12 +220,13 @@ class FlowSpec(object):
         }
         self._graph_info = graph_info
 
-    def _get_parameters(self):
-        for var in dir(self):
-            if var[0] == "_" or var in self._NON_PARAMETERS:
+    @classmethod
+    def _get_parameters(cls):
+        for var in dir(cls):
+            if var[0] == "_" or var in cls._NON_PARAMETERS:
                 continue
             try:
-                val = getattr(self, var)
+                val = getattr(cls, var)
             except:
                 continue
             if isinstance(val, Parameter):
@@ -222,7 +256,11 @@ class FlowSpec(object):
         else:
             raise AttributeError("Flow %s has no attribute '%s'" % (self.name, name))
 
-    def cmd(self, cmdline, input={}, output=[]):
+    def cmd(self, cmdline, input=None, output=None):
+        if input is None:
+            input = {}
+        if output is None:
+            output = []
         return cmd_with_io.cmd(cmdline, input=input, output=output)
 
     @property
@@ -347,7 +385,7 @@ class FlowSpec(object):
                     )
             return self._cached_input[stack_index]
 
-    def merge_artifacts(self, inputs, exclude=[], include=[]):
+    def merge_artifacts(self, inputs, exclude=None, include=None):
         """
         Merge the artifacts coming from each merge branch (from inputs)
 
@@ -399,6 +437,10 @@ class FlowSpec(object):
             be found
         """
         node = self._graph[self._current_step]
+        if include is None:
+            include = []
+        if exclude is None:
+            exclude = []
         if node.type != "join":
             msg = (
                 "merge_artifacts can only be called in a join and step *{step}* "
