@@ -38,6 +38,9 @@ jobs:
         python3 -m pip install --upgrade pip setuptools wheel
         python3 -m pip install -e .[test]
 
+    - name: Execute pytest tests
+      run: pytest
+
     - name: Execute Python tests
       run: tox
 

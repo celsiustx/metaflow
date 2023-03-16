@@ -379,7 +379,7 @@ class ServiceMetadataProvider(MetadataProvider):
                         resp.status_code,
                         resp.text,
                     )
-            time.sleep(2 ** i)
+            time.sleep(2**i)
 
         if resp:
             raise ServiceException(
@@ -426,7 +426,7 @@ class ServiceMetadataProvider(MetadataProvider):
                         resp.status_code,
                         resp.text,
                     )
-            time.sleep(2 ** i)
+            time.sleep(2**i)
         if resp:
             raise ServiceException(
                 "Metadata request (%s) failed (code %s): %s"
